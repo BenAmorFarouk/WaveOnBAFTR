@@ -1,0 +1,60 @@
+import customtkinter as ctk
+import cv2
+from PIL import Image, ImageTk
+
+def button_callback():
+    print("button pressed")
+
+class App(ctk.CTk):
+    def __init__(self):
+        ID = "Oussema"  # to be programmed with RFID
+        super().__init__()
+        self.title("my app")
+
+        # Allow the main window to be resizable
+        self.resizable(True, True)
+
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
+
+        self.cap = cv2.VideoCapture(0)
+
+        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {ID}", fg_color="transparent", font=("Serif", 50))
+        self.label.pack(side="top", padx=10, pady=10)
+
+        self.canvas = ctk.CTkCanvas(self.main_frame, width=0.7, height=0.5)
+        self.canvas.pack(side="left", padx=10, pady=10, expand=True, fill="both")
+
+        self.button_frame = ctk.CTkFrame(self.main_frame)
+        self.button_frame.pack(side="right", padx=10, pady=10, expand=True, fill="both")
+
+        button_width = int(self.winfo_screenwidth() * 0.04)
+        button_height = int(self.winfo_screenheight() * 0.04)
+
+        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 33), command=button_callback, width=button_width, height=button_height)
+        self.button_1.pack(pady=(10, 10))
+
+        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 33), command=button_callback, width=button_width, height=button_height)
+        self.button_2.pack(pady=(10, 10))
+
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 33), command=button_callback, width=button_width, height=button_height)
+        self.button_3.pack(pady=(10, 10))
+
+        self.photo = None
+        self.update()
+
+    def update(self):
+        ret, frame = self.cap.read()
+        if ret:
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
+            self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+        self.after(10, self.update)
+
+# Create an instance of the App class
+app = App()
+
+# Run the Tkinter event loop
+app.mainloop()
