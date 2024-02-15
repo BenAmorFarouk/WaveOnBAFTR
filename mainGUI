@@ -5,6 +5,8 @@ from moviepy.editor import VideoFileClip, AudioFileClip
 import sounddevice as sd
 import numpy as np
 from scipy.io.wavfile import write
+import os
+from datetime import datetime
 
 def button_callback():
     print("button pressed")
@@ -13,44 +15,64 @@ class App(ctk.CTk):
     def __init__(self):
         ID = "Oussema"  # to be programmed with RFID
         super().__init__()
-        self.title("my app")
+        self.title("Main GUI")
         self.geometry("1920x1080")
-
         self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
+        self.folder_name = datetime.now().strftime("%Y-%m-%d")
+        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name)
+        os.makedirs(self.folder_path, exist_ok=True)
+        
         self.main_frame = ctk.CTkFrame(self)
-        self.main_frame.grid(row=1, column=0, padx=10, pady=10, sticky="n")
+        self.main_frame.grid(row=0, column=0, columnspan=2, rowspan=3, padx=10, pady=10, sticky="nsew")
         self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.columnconfigure(1, weight=1)
         self.main_frame.rowconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
+        self.main_frame.rowconfigure(2, weight=1)
         self.main_frame.configure(fg_color="transparent", bg_color="transparent")
 
         self.cap = cv2.VideoCapture(0)
 
         self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {ID}", fg_color="transparent", font=("Serif", 50), height=50)
-        self.label.grid(sticky="new")
-        self.label.pack(side="top", padx=10, pady=10)
+        self.label.grid(row=0, column=0, columnspan=2, sticky="n", padx=10, pady=10)
 
         self.canvas = ctk.CTkCanvas(self.main_frame, width=630, height=400)
-        self.canvas.pack(side="left", padx=10, pady=10)
+        self.canvas.grid(row=1, column=0, padx=10, pady=10)
 
         self.button_frame = ctk.CTkFrame(self.main_frame)
-        self.button_frame.pack(side="right", padx=10, pady=300)
+        self.button_frame.grid(row=1, column=1, padx=10, pady=10)
         self.button_frame.configure(fg_color="transparent", bg_color="transparent", width=500)
 
-        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 33), command=button_callback, width=33, height=33)
+        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 33), command=button_callback, width=33, height=3)
         self.button_1.pack(padx=200, pady=(10, 10))
 
-        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 33), command=self.capture_photo, width=33, height=33)
+        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 33), command=self.capture_photo, width=33, height=3)
         self.button_2.pack(padx=200, pady=(10, 10))
 
-        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 33), width=33, command=self.capture_video, height=33)
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 33), width=33, command=self.capture_video, height=3)
         self.button_3.pack(padx=200, pady=(10, 10))
+
+        self.text_entry = ctk.CTkEntry(self.main_frame, font=("Serif", 20), width=300)
+        self.text_entry.grid(row=2, column=0, pady=10, sticky="e")
+
+        self.submit_button = ctk.CTkButton(self.main_frame, text="Submit Text", font=("Serif", 20), command=self.submit_text)
+        self.submit_button.grid(row=2, column=1, pady=10, sticky="w")
 
         self.photo = None
         self.out = None
         self.recording = False
         self.update()
+
+    def submit_text(self):
+        entered_text = self.text_entry.get()
+        print(f"Entered Text: {entered_text}")
+        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name, entered_text)
+        os.makedirs(self.folder_path, exist_ok=True)
 
     def update(self):
         ret, frame = self.cap.read()
@@ -69,18 +91,17 @@ class App(ctk.CTk):
         if ret:
             flipped_frame = cv2.flip(frame, 1)
             image = Image.fromarray(cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB))
-            image.save("C:/Users/benam/Desktop/test_folder/captured_image.png")
+            image.save(os.path.join(self.folder_path, "captured_image.png"))
 
     def capture_video(self):
         if not self.recording:
             print("Start recording video")
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            self.out = cv2.VideoWriter("C:/Users/benam/Desktop/test_folder/captured_video.mp4", fourcc, 20.0, (640, 480))
+            self.out = cv2.VideoWriter(os.path.join(self.folder_path, "captured_video.mp4"), fourcc, 20.0, (640, 480))
 
             self.audio_frames = []
             self.audio_stream = sd.InputStream(callback=self.audio_callback)
             self.audio_stream.start()
-
             self.recording = True
         else:
             print("Stop recording video")
@@ -90,16 +111,15 @@ class App(ctk.CTk):
             self.audio_stream.close()
 
             audio_data = np.concatenate(self.audio_frames, axis=0)
-            write("C:/Users/benam/Desktop/test_folder/audio.mp3", 44100, audio_data)
+            write(os.path.join(self.folder_path, "audio.mp3"), 44100, audio_data)
 
-            video_clip = VideoFileClip("C:/Users/benam/Desktop/test_folder/captured_video.mp4")
-
-            audio_clip = AudioFileClip("C:/Users/benam/Desktop/test_folder/audio.mp3")
+            video_clip = VideoFileClip(os.path.join(self.folder_path, "captured_video.mp4"))
+            audio_clip = AudioFileClip(os.path.join(self.folder_path, "audio.mp3"))
 
             video_clip = video_clip.subclip(0, audio_clip.duration)
             video_with_audio = video_clip.set_audio(audio_clip)
 
-            video_with_audio.write_videofile("C:/Users/benam/Desktop/test_folder/captured_video_including_audio.mp4", codec='libx264', audio_codec='aac')
+            video_with_audio.write_videofile(os.path.join(self.folder_path, "captured_video_including_audio.mp4"), codec='libx264', audio_codec='aac')
 
             self.recording = False
 
@@ -108,8 +128,5 @@ class App(ctk.CTk):
             print(status, flush=True)
         self.audio_frames.append(indata.copy())
 
-# Create an instance of the app class
 app = App()
-
-# Run the Tkinter event loop
 app.mainloop()
