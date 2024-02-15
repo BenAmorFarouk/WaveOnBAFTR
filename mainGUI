@@ -99,7 +99,7 @@ class App(ctk.CTk):
             video_clip = video_clip.subclip(0, audio_clip.duration)
             video_with_audio = video_clip.set_audio(audio_clip)
 
-            video_with_audio.write_videofile("C:/Users/benam/Desktop/test_folder/captured_video.mp4", codec='libx264', audio_codec='aac')
+            video_with_audio.write_videofile("C:/Users/benam/Desktop/test_folder/captured_video_including_audio.mp4", codec='libx264', audio_codec='aac')
 
             self.recording = False
 
