@@ -1,11 +1,15 @@
 import customtkinter as ctk
 import cv2
 from PIL import Image, ImageTk
+from moviepy.editor import VideoFileClip, AudioFileClip
+import sounddevice as sd
+import numpy as np
+from scipy.io.wavfile import write
 
 def button_callback():
     print("button pressed")
 
-class app(ctk.CTk):
+class App(ctk.CTk):
     def __init__(self):
         ID = "Oussema"  # to be programmed with RFID
         super().__init__()
@@ -18,7 +22,6 @@ class app(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        
         self.main_frame = ctk.CTkFrame(self)
         self.main_frame.grid(row=1, column=0, padx=10, pady=10, sticky="n")
         self.main_frame.columnconfigure(0, weight=1)
@@ -41,25 +44,85 @@ class app(ctk.CTk):
         self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 33), command=button_callback, width=33, height=33)
         self.button_1.pack(padx=200, pady=(10, 10))
 
-        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 33), command=button_callback, width=33, height=33)
+        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 33), command=self.capture_photo, width=33, height=33)
         self.button_2.pack(padx=200, pady=(10, 10))
 
-        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 33), command=button_callback, width=33, height=33)
-        self.button_2.pack(padx=200, pady=(10, 10))
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 33), width=33, height=33, command=self.capture_video)
+        self.button_3.pack(padx=200, pady=(10, 10))
 
         self.photo = None
+        self.out = None  # Initialize VideoWriter object to None
+        self.recording = False  # Flag to track recording status
         self.update()
 
     def update(self):
         ret, frame = self.cap.read()
         if ret:
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            flipped_frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
             self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+
+            if self.recording and self.out is not None:
+                self.out.write(flipped_frame)
         self.after(10, self.update)
 
+    def capture_photo(self):
+        ret, frame = self.cap.read()
+        if ret:
+            flipped_frame = cv2.flip(frame, 1)
+            image = Image.fromarray(cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB))
+            image.save("C:/Users/benam/Desktop/test_folder/captured_image.png")
+
+    def capture_video(self):
+        if not self.recording:
+            print("Start recording video")
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            self.out = cv2.VideoWriter("C:/Users/benam/Desktop/test_folder/captured_video.mp4", fourcc, 20.0, (640, 480))
+
+            # Start recording audio
+            self.audio_frames = []
+            self.audio_stream = sd.InputStream(callback=self.audio_callback)
+            self.audio_stream.start()
+
+            self.recording = True
+        else:
+            print("Stop recording video")
+            self.out.release()
+
+            # Stop recording audio
+            self.audio_stream.stop()
+            self.audio_stream.close()
+
+            # Convert and save the audio frames as a WAV file
+            audio_data = np.concatenate(self.audio_frames, axis=0)
+            write("C:/Users/benam/Desktop/test_folder/audio.mp3", 44100, audio_data)
+
+            # Load the recorded video clip
+            video_clip = VideoFileClip("C:/Users/benam/Desktop/test_folder/captured_video.mp4")
+
+            # Load the audio clip
+            audio_clip = AudioFileClip("C:/Users/benam/Desktop/test_folder/audio.mp3")
+
+            # Ensure that the audio duration matches the video duration
+            # audio_clip = audio_clip.subclip(video_clip.duration)
+            video_clip = video_clip.subclip(0, audio_clip.duration)
+            # Combine the video and audio clips
+            video_with_audio = video_clip.set_audio(audio_clip)
+
+            # Write the final video with audio
+            video_with_audio.write_videofile("C:/Users/benam/Desktop/test_folder/captured_video.mp4", codec='libx264', audio_codec='aac')
+
+            # Reset the recording flag
+            self.recording = False
+
+    def audio_callback(self, indata, frames, time, status):
+        if status:
+            print(status, flush=True)
+        self.audio_frames.append(indata.copy())
+
 # Create an instance of the app class
-app = app()
+app = App()
 
 # Run the Tkinter event loop
 app.mainloop()
