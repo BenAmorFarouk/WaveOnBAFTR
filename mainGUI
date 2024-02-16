@@ -66,6 +66,7 @@ class App(ctk.CTk):
         self.photo = None
         self.out = None
         self.recording = False
+        self.recording_in_progress = False
         self.update()
 
     def submit_text(self):
@@ -94,8 +95,9 @@ class App(ctk.CTk):
             image.save(os.path.join(self.folder_path, "captured_image.png"))
 
     def capture_video(self):
-        if not self.recording:
+        if not self.recording_in_progress:
             print("Start recording video")
+            self.button_3.configure(text="Arrêter capture vidéo")
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
             self.out = cv2.VideoWriter(os.path.join(self.folder_path, "captured_video.mp4"), fourcc, 20.0, (640, 480))
 
@@ -103,8 +105,10 @@ class App(ctk.CTk):
             self.audio_stream = sd.InputStream(callback=self.audio_callback)
             self.audio_stream.start()
             self.recording = True
+            self.recording_in_progress = True
         else:
             print("Stop recording video")
+            self.button_3.configure(text="Faire capture vidéo")
             self.out.release()
 
             self.audio_stream.stop()
@@ -122,6 +126,7 @@ class App(ctk.CTk):
             video_with_audio.write_videofile(os.path.join(self.folder_path, "captured_video_including_audio.mp4"), codec='libx264', audio_codec='aac')
 
             self.recording = False
+            self.recording_in_progress = False
 
     def audio_callback(self, indata, frames, time, status):
         if status:
