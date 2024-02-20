@@ -25,7 +25,7 @@ class App(ctk.CTk):
 
         self.folder_name = datetime.now().strftime("%Y-%m-%d")
         self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name)
-        os.makedirs(self.folder_name, exist_ok=True)
+        os.makedirs(self.folder_path, exist_ok=True)
         
         self.main_frame = ctk.CTkFrame(self)
         self.main_frame.grid(row=0, column=0, columnspan=2, rowspan=3, padx=10, pady=10, sticky="nsew")
@@ -73,17 +73,23 @@ class App(ctk.CTk):
         self.update()
 
         # Create a frame for the virtual keypad
-        button_layout = [
-            '1', '2', '3', '4', '5', '6', '7', '8', '9',
-            'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O',
-            '0', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K',
-            'L', 'M', 'W', 'X', 'C', 'V', 'B', 'N', 'P',
-            'Clear', 'Del'
+        letter_layout = [
+            'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'W', 'X', 'C', 'V', 'B', 'N',
         ]
 
-        for i, text in enumerate(button_layout):
+        number_layout = [
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Clear', 'Del'
+        ]
+
+        for i, text in enumerate(letter_layout):
+            padx = 5
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 14), command=lambda t=text: self.on_keypad_button_click(t))
-            button.grid(row=i // 9, column=i % 9, padx=5, pady=5)
+            button.grid(row=i // 6 + 9, column=i % 6, padx=padx, pady=5)
+
+        for i, text in enumerate(number_layout):
+            padx = 5
+            button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 14), command=lambda t=text: self.on_keypad_button_click(t))
+            button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=5)
 
     def on_keypad_button_click(self, text):
         # Handle button clicks, e.g., update an entry widget or perform other actions
@@ -112,9 +118,7 @@ class App(ctk.CTk):
         # Process the entered text (e.g., save to a file, perform an action)
         entered_text = self.text_entry.get()
         print(f"Entered Text: {entered_text}")
-        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name, entered_text)
-        os.makedirs(self.folder_path, exist_ok=True)
-        
+
     def update(self):
         ret, frame = self.cap.read()
         if ret:
