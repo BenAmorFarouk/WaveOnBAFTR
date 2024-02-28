@@ -23,8 +23,6 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1)
-        self.grid_rowconfigure(3, weight=1)
-        self.grid_rowconfigure(4, weight=1)
 
         self.folder_name = datetime.now().strftime("%Y-%m-%d")
         self.folder_path = os.path.join("/home/pi/main/DATA", self.folder_name)
@@ -47,27 +45,27 @@ class App(ctk.CTk):
 
         self.cap = cv2.VideoCapture(0)
 
-        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {ID}", fg_color="transparent", font=("Serif", 30))
-        self.label.grid(row=0, column=0, columnspan=2 , pady=5)
+        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {ID}", fg_color="transparent", font=("Serif", 27))
+        self.label.grid(row=0, column=0, columnspan=2 , pady=3)
 
-        self.canvas = ctk.CTkCanvas(self.main_frame, width=475, height=220)
-        self.canvas.grid(row=1, column=0, padx=10, pady=3)
+        self.canvas = ctk.CTkCanvas(self.main_frame, width=600, height=350)
+        self.canvas.grid(row=1, column=0, padx=1, pady=2)
 
         self.button_frame = ctk.CTkFrame(self.main_frame)
-        self.button_frame.grid(row=1, column=1, padx=10, pady=5)
+        self.button_frame.grid(row=1, column=1, padx=1, pady=5, sticky="w")
         self.button_frame.configure(fg_color="transparent", bg_color="transparent", width=300)
 
-        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 15), command=button_callback)
+        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 18), command=button_callback)
         self.button_1.pack(padx=5, pady=(5, 5))
 
-        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 15), command=self.capture_photo)
+        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 18), command=self.capture_photo)
         self.button_2.pack(padx=5, pady=(5, 5))
 
-        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 15), command=self.capture_video)
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 18), command=self.capture_video)
         self.button_3.pack(padx=5, pady=(5, 5))
 
         self.text_entry = ctk.CTkEntry(self.main_frame , font=("Serif", 10), width=200, height=10)
-        self.text_entry.grid(row=2, column=0, pady=5, columnspan=2)
+        self.text_entry.grid(row=2, column=0, pady=3, columnspan=2)
 
 
 
@@ -89,12 +87,12 @@ class App(ctk.CTk):
         for i, text in enumerate(letter_layout):
             padx = 2
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 10), command=lambda t=text: self.on_keypad_button_click(t), width=70, height=10)
-            button.grid(row=i // 6 + 9, column=i % 6, padx=padx, pady=2)
+            button.grid(row=i // 6 + 9, column=i % 6, padx=padx, pady=1)
 
         for i, text in enumerate(number_layout):
             padx = 2
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 10), command=lambda t=text: self.on_keypad_button_click(t), width=70, height=10)
-            button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=2)
+            button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=1)
 
     def on_keypad_button_click(self, text):
         # Handle button clicks, e.g., update an entry widget or perform other actions
@@ -142,16 +140,19 @@ class App(ctk.CTk):
     def capture_photo(self):
         ret, frame = self.cap.read()
         if ret:
+            print("Capture photo")
             flipped_frame = cv2.flip(frame, 1)
             image = Image.fromarray(cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB))
-            image.save(os.path.join(self.folder_path, "captured_image.png"))
+            photo_filename = os.path.join(self.folder_path, f"captured_image_{datetime.now().strftime('%H-%M-%S')}.png")
+            image.save(photo_filename)
 
     def capture_video(self):
         if not self.recording_in_progress:
             print("Start recording video")
             self.button_3.configure(text="Arrêter capture vidéo")
-            fourcc = cv2.VideoWriter_fourcc(*'H264')
-            self.out = cv2.VideoWriter(os.path.join(self.folder_path, "captured_video.AVI"), fourcc, 20.0, (475, 220))
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            self.video_filename = os.path.join(self.folder_path, f"captured_video_{datetime.now().strftime('%H-%M-%S')}.mp4")
+            self.out = cv2.VideoWriter(self.video_filename, fourcc, 20.0, (640, 480))
 
             self.audio_frames = []
             self.audio_stream = sd.InputStream(callback=self.audio_callback)
@@ -167,15 +168,17 @@ class App(ctk.CTk):
             self.audio_stream.close()
 
             audio_data = np.concatenate(self.audio_frames, axis=0)
-            write(os.path.join(self.folder_path, "audio.mp3"), 44100, audio_data)
+            audio_filename = os.path.join(self.folder_path, f"audio_{datetime.now().strftime('%H-%M-%S')}.mp3")
+            write(audio_filename, 44100, audio_data)
 
-            video_clip = VideoFileClip(os.path.join(self.folder_path, "captured_video.AVI"))
-            audio_clip = AudioFileClip(os.path.join(self.folder_path, "audio.mp3"))
+            video_clip = VideoFileClip(self.video_filename)
+            audio_clip = AudioFileClip(audio_filename)
 
             video_clip = video_clip.subclip(0, audio_clip.duration)
             video_with_audio = video_clip.set_audio(audio_clip)
 
-            video_with_audio.write_videofile(os.path.join(self.folder_path, "captured_video_including_audio.AVI"), codec='H264', audio_codec='aac')
+            output_filename = os.path.join(self.folder_path, f"captured_video_including_audio_{datetime.now().strftime('%H-%M-%S')}.mp4")
+            video_with_audio.write_videofile(output_filename, codec='libx264', audio_codec='aac')
 
             self.recording = False
             self.recording_in_progress = False
