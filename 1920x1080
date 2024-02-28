@@ -24,7 +24,7 @@ class App(ctk.CTk):
         self.grid_rowconfigure(2, weight=1)
 
         self.folder_name = datetime.now().strftime("%Y-%m-%d")
-        self.folder_path = os.path.join("C:/Users/Racem/Desktop/ID", self.folder_name)
+        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name)
         os.makedirs(self.folder_path, exist_ok=True)
         
         self.main_frame = ctk.CTkFrame(self)
@@ -38,6 +38,7 @@ class App(ctk.CTk):
 
         self.keypad_frame = ctk.CTkFrame(self.main_frame)
         self.keypad_frame.grid(row=3, column=0, pady=10, columnspan=2)
+        self.keypad_frame.configure(fg_color="transparent", bg_color="transparent")
 
         self.cap = cv2.VideoCapture(0)
 
@@ -45,7 +46,7 @@ class App(ctk.CTk):
         self.label.grid(row=0, column=0, columnspan=2, sticky="n", padx=10, pady=10)
 
         self.canvas = ctk.CTkCanvas(self.main_frame, width=630, height=400)
-        self.canvas.grid(row=1, column=0, padx=10, pady=10)
+        self.canvas.grid(row=1, column=0, padx=150, pady=10)
 
         self.button_frame = ctk.CTkFrame(self.main_frame)
         self.button_frame.grid(row=1, column=1, padx=10, pady=10)
@@ -61,10 +62,10 @@ class App(ctk.CTk):
         self.button_3.pack(padx=200, pady=(10, 10))
 
         self.text_entry = ctk.CTkEntry(self.main_frame, font=("Serif", 20), width=300)
-        self.text_entry.grid(row=2, column=0, pady=10, sticky="e")
+        self.text_entry.grid(row=2, column=1, pady=10, sticky="w", columnspan=2)
 
         self.submit_button = ctk.CTkButton(self.main_frame, text="Submit Text", font=("Serif", 20), command=self.submit_text)
-        self.submit_button.grid(row=2, column=1, pady=10, sticky="w")
+        self.submit_button.grid(row=2, column=1,padx=310, pady=10, sticky="ew", columnspan=2)
 
         self.photo = None
         self.out = None
@@ -73,17 +74,23 @@ class App(ctk.CTk):
         self.update()
 
         # Create a frame for the virtual keypad
-        button_layout = [
-            '1', '2', '3', '4', '5', '6', '7', '8', '9',
-            'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O',
-            '0', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K',
-            'L', 'M', 'W', 'X', 'C', 'V', 'B', 'N', 'P',
-            'Clear', 'Del'
+        letter_layout = [
+            'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'W', 'X', 'C', 'V', 'B', 'N',
         ]
 
-        for i, text in enumerate(button_layout):
+        number_layout = [
+            '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Clear', 'Del'
+        ]
+
+        for i, text in enumerate(letter_layout):
+            padx = 5
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 14), command=lambda t=text: self.on_keypad_button_click(t))
-            button.grid(row=i // 9, column=i % 9, padx=5, pady=5)
+            button.grid(row=i // 6 + 9, column=i % 6, padx=padx, pady=5)
+
+        for i, text in enumerate(number_layout):
+            padx = 5
+            button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 14), command=lambda t=text: self.on_keypad_button_click(t))
+            button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=5)
 
     def on_keypad_button_click(self, text):
         # Handle button clicks, e.g., update an entry widget or perform other actions
@@ -112,9 +119,9 @@ class App(ctk.CTk):
         # Process the entered text (e.g., save to a file, perform an action)
         entered_text = self.text_entry.get()
         print(f"Entered Text: {entered_text}")
-        self.folder_path = os.path.join("C:/Users/Racem/Desktop/ID", self.folder_name, entered_text)
+        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name, entered_text)
         os.makedirs(self.folder_path, exist_ok=True)
-        
+
     def update(self):
         ret, frame = self.cap.read()
         if ret:
