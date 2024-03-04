@@ -162,26 +162,37 @@ class App(ctk.CTk):
         else:
             print("Stop recording video")
             self.button_3.configure(text="Faire capture vidéo")
-            self.out.release()
 
-            self.audio_stream.stop()
-            self.audio_stream.close()
+            self.out.release()
 
             audio_data = np.concatenate(self.audio_frames, axis=0)
             audio_filename = os.path.join(self.folder_path, f"audio_{datetime.now().strftime('%H-%M-%S')}.mp3")
             write(audio_filename, 44100, audio_data)
 
+            self.audio_stream.stop()
+            self.audio_stream.close()
+
+            print(f"Video file path: {self.video_filename}")
+
+            
             video_clip = VideoFileClip(self.video_filename)
             audio_clip = AudioFileClip(audio_filename)
-
             video_clip = video_clip.subclip(0, audio_clip.duration)
             video_with_audio = video_clip.set_audio(audio_clip)
-
             output_filename = os.path.join(self.folder_path, f"captured_video_including_audio_{datetime.now().strftime('%H-%M-%S')}.mp4")
             video_with_audio.write_videofile(output_filename, codec='libx264', audio_codec='aac')
 
             self.recording = False
             self.recording_in_progress = False
+            
+    def audio_callback(self, indata, frames, time, status):
+        if status:
+            print(status, flush=True)
+        if frames > 0:    
+            self.audio_frames.append(indata.copy())
+
+app = App()
+app.mainloop()
 
     def audio_callback(self, indata, frames, time, status):
         if status:
