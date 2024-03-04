@@ -185,14 +185,6 @@ class App(ctk.CTk):
             self.recording = False
             self.recording_in_progress = False
             
-    def audio_callback(self, indata, frames, time, status):
-        if status:
-            print(status, flush=True)
-        if frames > 0:    
-            self.audio_frames.append(indata.copy())
-
-app = App()
-app.mainloop()
 
     def audio_callback(self, indata, frames, time, status):
         if status:
