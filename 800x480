@@ -8,7 +8,6 @@ from scipy.io.wavfile import write
 import os
 from datetime import datetime
 
-
 def button_callback():
     print("button pressed")
 
@@ -66,8 +65,6 @@ class App(ctk.CTk):
 
         self.text_entry = ctk.CTkEntry(self.main_frame , font=("Serif", 10), width=200, height=10)
         self.text_entry.grid(row=2, column=0, pady=3, columnspan=2)
-
-
 
         self.photo = None
         self.out = None
@@ -137,6 +134,11 @@ class App(ctk.CTk):
                 self.out.write(flipped_frame)
         self.after(10, self.update)
 
+    def audio_callback(self, indata, frames, time, status):
+        if status:
+            print(status, flush=True)
+        self.audio_frames.append(indata.copy())
+
     def capture_photo(self):
         ret, frame = self.cap.read()
         if ret:
@@ -174,7 +176,6 @@ class App(ctk.CTk):
 
             print(f"Video file path: {self.video_filename}")
 
-            
             video_clip = VideoFileClip(self.video_filename)
             audio_clip = AudioFileClip(audio_filename)
             video_clip = video_clip.subclip(0, audio_clip.duration)
@@ -184,12 +185,6 @@ class App(ctk.CTk):
 
             self.recording = False
             self.recording_in_progress = False
-            
-
-    def audio_callback(self, indata, frames, time, status):
-        if status:
-            print(status, flush=True)
-        self.audio_frames.append(indata.copy())
 
 app = App()
 app.mainloop()
