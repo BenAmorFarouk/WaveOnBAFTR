@@ -320,9 +320,9 @@ class App(ctk.CTk):
 
 
 
-            self.out = cv2.VideoWriter(self.video_filename, cv2.VideoWriter_fourcc(*'H264'), 30.0, (640, 480))
+            self.out = cv2.VideoWriter(self.video_filename, cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (640, 480))
 
-            self.audio_frames = []
+            self.audio_frames  = []
 
 
 
@@ -411,3 +411,6 @@ class App(ctk.CTk):
 app = App()
 
 app.mainloop()
+
+
+
