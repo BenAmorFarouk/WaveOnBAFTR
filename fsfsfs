@@ -1,0 +1,135 @@
+import customtkinter as ctk
+import cv2
+from PIL import Image, ImageTk
+from datetime import datetime
+import os
+import pyaudio
+import wave
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+
+def button_callback():
+    print("button pressed")
+
+class App(ctk.CTk):
+
+    def __init__(self):
+        ID = "Oussema"  # to be programmed with RFID
+        super().__init__()
+        self.audio_frames = []
+        self.title("Main GUI")
+        self.geometry("800x480")
+
+        self.folder_name = datetime.now().strftime("%Y-%m-%d")
+        self.folder_path = os.path.join("/home/pi/main/DATA", self.folder_name)
+        os.makedirs(self.folder_path, exist_ok=True)
+
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.pack(fill=ctk.BOTH, expand=True)
+
+        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {ID}", font=("Serif", 30))
+        self.label.pack(pady=5)
+
+        self.canvas_frame = ctk.CTkFrame(self.main_frame)
+        self.canvas_frame.pack(pady=5)
+
+        self.canvas = ctk.CTkCanvas(self.canvas_frame, width=475, height=220)
+        self.canvas.pack()
+
+        self.button_frame = ctk.CTkFrame(self.main_frame)
+        self.button_frame.pack(pady=5)
+
+        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 15), command=button_callback)
+        self.button_1.pack(side=ctk.LEFT, padx=5)
+
+        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 15), command=self.capture_photo)
+        self.button_2.pack(side=ctk.LEFT, padx=5)
+
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 15), command=self.capture_video)
+        self.button_3.pack(side=ctk.LEFT, padx=5)
+
+        self.text_entry = ctk.CTkEntry(self.main_frame, font=("Serif", 10), width=200, height=6)
+        self.text_entry.pack(pady=5)
+
+        self.cap = cv2.VideoCapture(0)
+        self.photo = None
+        self.out = None
+        self.recording = False
+        self.recording_in_progress = False
+        self.update()
+
+    def resize_video_frame(self, frame):
+        canvas_width = 475
+        canvas_height = 220
+        video_width = frame.shape[1]
+        video_height = frame.shape[0]
+        scale_x = canvas_width / video_width
+        scale_y = canvas_height / video_height
+        scale_factor = min(scale_x, scale_y)
+        scaled_width = int(video_width * scale_factor)
+        scaled_height = int(video_height * scale_factor)
+        resized_frame = cv2.resize(frame, (scaled_width, scaled_height))
+        return resized_frame
+
+    def update(self):
+        ret, frame = self.cap.read()
+        if ret:
+            flipped_frame = cv2.flip(frame, 1)
+            resized_frame = self.resize_video_frame(flipped_frame)
+            rgb_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
+            self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
+            self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+            if self.recording and self.out is not None:
+                self.out.write(flipped_frame)
+                if self.audio_stream:
+                    audio_data = self.audio_stream.read(1024)
+                    if audio_data:
+                        self.audio_frames.append(audio_data)
+        self.after(100, self.update)
+
+    def capture_photo(self):
+        ret, frame = self.cap.read()
+        if ret:
+            print("Capture photo")
+            flipped_frame = cv2.flip(frame, 1)
+            image = Image.fromarray(cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB))
+            photo_filename = os.path.join(self.folder_path, f"captured_image_{datetime.now().strftime('%H-%M-%S')}.png")
+            image.save(photo_filename)
+
+    def capture_video(self):
+        if not self.recording_in_progress:
+            print("Start recording video")
+            self.video_filename = os.path.join(self.folder_path, f"captured_video_{datetime.now().strftime('%H-%M-%S')}.mp4")
+            self.audio_filename = os.path.join(self.folder_path, f"audio_{datetime.now().strftime('%H-%M-%S')}.wav")
+            self.out = cv2.VideoWriter(self.video_filename, cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (640, 480))
+            self.audio_frames  = []
+            p = pyaudio.PyAudio()
+            self.audio_stream = p.open(format=pyaudio.paInt16,
+                                       channels=1,
+                                       rate= 44100,
+                                       input=True,
+                                       frames_per_buffer=1024)
+            self.recording = True
+            self.recording_in_progress = True
+        else:
+            print("Stop recording video")
+            self.out.release()
+            wf = wave.open(self.audio_filename, 'wb')
+            wf.setnchannels(1)
+            wf.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
+            wf.setframerate(44100)
+            wf.writeframes(b''.join(self.audio_frames))
+            wf.close()
+            self.audio_stream.stop_stream()
+            self.audio_stream.close()
+            print(f"Video file path: {self.video_filename}")
+            print(f"Audio file path: {self.audio_filename}")
+            video_clip = VideoFileClip(self.video_filename)
+            audio_clip = AudioFileClip(self.audio_filename)
+            video_clip = video_clip.set_audio(audio_clip)
+            final_output_filename = os.path.join(self.folder_path, f"captured_video_including_audio_{datetime.now().strftime('%H-%M-%S')}.mp4")
+            video_clip.write_videofile(final_output_filename, codec='libx264', audio_codec='aac')
+            self.recording = False
+            self.recording_in_progress = False
+
+app = App()
+app.mainloop()
