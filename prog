@@ -1,0 +1,191 @@
+import customtkinter as ctk
+import cv2
+from PIL import Image, ImageTk
+from moviepy.editor import VideoFileClip, AudioFileClip
+import sounddevice as sd
+import numpy as np
+from scipy.io.wavfile import write
+import os
+from datetime import datetime
+
+
+def button_callback():
+    print("button pressed")
+
+class App(ctk.CTk):
+    def __init__(self):
+        ID="NAME"
+        super().__init__()
+        self.title("Main GUI")
+        self.geometry("1920x1080")
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+
+        self.folder_name = datetime.now().strftime("%Y-%m-%d")
+        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name)
+        os.makedirs(self.folder_path, exist_ok=True)
+        
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.grid(row=0, column=0, columnspan=2, rowspan=3, padx=10, pady=10, sticky="nsew")
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.columnconfigure(1, weight=1)
+        self.main_frame.rowconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
+        self.main_frame.rowconfigure(2, weight=1)
+        self.main_frame.configure(fg_color="transparent", bg_color="transparent")
+
+        self.keypad_frame = ctk.CTkFrame(self.main_frame)
+        self.keypad_frame.grid(row=3, column=0, pady=10, columnspan=2)
+        self.keypad_frame.configure(fg_color="transparent", bg_color="transparent")
+
+        self.cap = cv2.VideoCapture(0)
+
+        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {ID}", fg_color="transparent", font=("Serif", 50), height=50)
+        self.label.grid(row=0, column=0, columnspan=2, sticky="n", padx=10, pady=10)
+
+        self.canvas = ctk.CTkCanvas(self.main_frame, width=630, height=400)
+        self.canvas.grid(row=1, column=0, padx=150, pady=10)
+
+        self.button_frame = ctk.CTkFrame(self.main_frame)
+        self.button_frame.grid(row=1, column=1, padx=10, pady=10)
+        self.button_frame.configure(fg_color="transparent", bg_color="transparent", width=500)
+
+        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 33), command=button_callback, width=33, height=3)
+        self.button_1.pack(padx=200, pady=(10, 10))
+
+        self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 33), command=self.capture_photo, width=33, height=3)
+        self.button_2.pack(padx=200, pady=(10, 10))
+
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 33), width=33, command=self.capture_video, height=3)
+        self.button_3.pack(padx=200, pady=(10, 10))
+
+        self.text_entry = ctk.CTkEntry(self.main_frame, font=("Serif", 20), width=300)
+        self.text_entry.grid(row=2, column=1, pady=10, sticky="w", columnspan=2)
+
+        self.submit_button = ctk.CTkButton(self.main_frame, text="Submit Text", font=("Serif", 20), command=self.submit_text)
+        self.submit_button.grid(row=2, column=1,padx=310, pady=10, sticky="ew", columnspan=2)
+
+        self.photo = None
+        self.out = None
+        self.recording = False
+        self.recording_in_progress = False
+        self.update()
+
+        # Create a frame for the virtual keypad
+        letter_layout = [
+            'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'W', 'X', 'C', 'V', 'B', 'N',
+        ]
+
+        number_layout = [
+            '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Clear', 'Del'
+        ]
+
+        for i, text in enumerate(letter_layout):
+            padx = 5
+            button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 14), command=lambda t=text: self.on_keypad_button_click(t))
+            button.grid(row=i // 6 + 9, column=i % 6, padx=padx, pady=5)
+
+        for i, text in enumerate(number_layout):
+            padx = 5
+            button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 14), command=lambda t=text: self.on_keypad_button_click(t))
+            button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=5)
+
+    def on_keypad_button_click(self, text):
+        # Handle button clicks, e.g., update an entry widget or perform other actions
+        if text == 'Clear':
+            self.clear_text_entry()
+        elif text == 'Del':
+            self.delete_last_letter()
+        else:
+            current_text = self.text_entry.get()
+            new_text = current_text + text
+            self.text_entry.delete(0, ctk.END)
+            self.text_entry.insert(0, new_text)
+
+    def clear_text_entry(self):
+        # Clear the entry widget
+        self.text_entry.delete(0, ctk.END)
+
+    def delete_last_letter(self):
+        # Delete the last letter from the entry widget
+        current_text = self.text_entry.get()
+        new_text = current_text[:-1]
+        self.text_entry.delete(0, ctk.END)
+        self.text_entry.insert(0, new_text)
+
+    def submit_text(self):
+        # Process the entered text (e.g., save to a file, perform an action)
+        entered_text = self.text_entry.get()
+        print(f"Entered Text: {entered_text}")
+        self.folder_path = os.path.join("C:/Users/benam/Desktop/ID", self.folder_name, entered_text)
+        os.makedirs(self.folder_path, exist_ok=True)
+
+    def update(self):
+        ret, frame = self.cap.read()
+        if ret:
+            flipped_frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB)
+            self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
+            self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+
+            if self.recording and self.out is not None:
+                self.out.write(flipped_frame)
+        self.after(10, self.update)
+
+    def capture_photo(self):
+        ret, frame = self.cap.read()
+        if ret:
+            print("Capture photo")
+            flipped_frame = cv2.flip(frame, 1)
+            image = Image.fromarray(cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB))
+            photo_filename = os.path.join(self.folder_path, f"captured_image_{datetime.now().strftime('%H-%M-%S')}.png")
+            image.save(photo_filename)
+
+    def capture_video(self):
+        if not self.recording_in_progress:
+            print("Start recording video")
+            self.button_3.configure(text="Arrêter capture vidéo")
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            self.video_filename = os.path.join(self.folder_path, f"captured_video_{datetime.now().strftime('%H-%M-%S')}.mp4")
+            self.out = cv2.VideoWriter(self.video_filename, fourcc, 20.0, (640, 480))
+
+            self.audio_frames = []
+            self.audio_stream = sd.InputStream(callback=self.audio_callback)
+            self.audio_stream.start()
+            self.recording = True
+            self.recording_in_progress = True
+        else:
+            print("Stop recording video")
+            self.button_3.configure(text="Faire capture vidéo")
+            self.out.release()
+
+            self.audio_stream.stop()
+            self.audio_stream.close()
+
+            audio_data = np.concatenate(self.audio_frames, axis=0)
+            audio_filename = os.path.join(self.folder_path, f"audio_{datetime.now().strftime('%H-%M-%S')}.mp3")
+            write(audio_filename, 44100, audio_data)
+
+            video_clip = VideoFileClip(self.video_filename)
+            audio_clip = AudioFileClip(audio_filename)
+
+            video_clip = video_clip.subclip(0, audio_clip.duration)
+            video_with_audio = video_clip.set_audio(audio_clip)
+
+            output_filename = os.path.join(self.folder_path, f"captured_video_including_audio_{datetime.now().strftime('%H-%M-%S')}.mp4")
+            video_with_audio.write_videofile(output_filename, codec='libx264', audio_codec='aac')
+
+            self.recording = False
+            self.recording_in_progress = False
+
+    def audio_callback(self, indata, frames, time, status):
+        if status:
+            print(status, flush=True)
+        self.audio_frames.append(indata.copy())
+
+app = App()
+
+app.mainloop()
