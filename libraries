@@ -1,1 +1,1 @@
-pip install customtkinter opencv-python Pillow moviepy sounddevice numpy scipy moviepy
+pip install customtkinter opencv-python Pillow moviepy sounddevice numpy scipy moviepy RPi.GPIO
