@@ -15,3 +15,5 @@ import pyaudio ##Bibliothéque utilisé pour faire des enregistrements audio
 import wave #Bibliothéque utilisé pour faire enregistrer des enregistrements audio
 
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips #Bibliothéque utilisé pour combiner des clips vidéo et audio en un seul fichier vidéo
+
+pip install customtkinter opencv-python Pillow moviepy sounddevice numpy scipy moviepy RPi.GPIO
