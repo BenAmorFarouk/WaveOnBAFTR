@@ -1,16 +1,6 @@
 Import cv2
 
-def pixels_to_mm(self, pixels, dpi=96):
 
-        # Convertir les pixels en pouces
-
-        inches = pixels / dpi
-
-        # Convertir les pouces en millimétres (1 pouce = 25.4 mm)
-
-        mm = inches * 25.4
-
-        return mm
 
     def measure_pixels(self, image_path):
 
@@ -89,3 +79,16 @@ def pixels_to_mm(self, pixels, dpi=96):
 
 
         cv2.destroyAllWindows()
+
+
+ def pixels_to_mm(self, pixels, dpi=96):
+
+        # Convertir les pixels en pouces
+
+        inches = pixels / dpi
+
+        # Convertir les pouces en millimétres (1 pouce = 25.4 mm)
+
+        mm = inches * 25.4
+
+        return mm
