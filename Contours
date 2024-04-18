@@ -1,0 +1,116 @@
+import cv2
+import numpy as np
+import tkinter as tk
+from tkinter import filedialog
+from PIL import Image, ImageTk
+import os
+import time
+
+# Function to detect objects using contour detection
+def detect_objects(frame):
+    # Convert frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Apply GaussianBlur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Use adaptive thresholding to obtain a binary image
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    
+    # Find contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Draw contours on the frame
+    for contour in contours:
+        # Draw contour
+        cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
+    
+    return frame
+
+# Function to capture and save photo with user-defined name
+def capture_and_save():
+    # Capture a frame from the camera
+    ret, frame = cap.read()
+    
+    # If frame is successfully captured
+    if ret:
+        # Ask user for the filename
+        filename = file_name_entry.get()
+        
+        # Check if filename is provided
+        if not filename:
+            print("Please enter a filename.")
+            return
+        
+        # Save the frame with the provided filename
+        destination_folder = filedialog.askdirectory()
+        if destination_folder:
+            # Generate the full path
+            file_path = os.path.join(destination_folder, filename + '.jpg')
+            
+            # Save the frame
+            cv2.imwrite(file_path, frame)
+            print("Image saved as", file_path)
+
+# Function to close OpenCV windows
+def close_windows():
+    cap.release()
+    cv2.destroyAllWindows()
+    root.quit()
+
+# Initialize camera
+cap = cv2.VideoCapture(0)
+
+# Create a Tkinter window
+root = tk.Tk()
+root.title("Capture Photo")
+
+# Create a label for filename entry
+file_name_label = tk.Label(root, text="Enter Filename:")
+file_name_label.pack()
+
+# Create an entry widget for filename input
+file_name_entry = tk.Entry(root)
+file_name_entry.pack()
+
+# Create a function to update the preview window
+def update_preview():
+    ret, frame = cap.read()
+    if ret:
+        # Detect objects
+        frame_with_objects = detect_objects(frame)
+        
+        # Convert frame to RGB
+        frame_with_objects = cv2.cvtColor(frame_with_objects, cv2.COLOR_BGR2RGB)
+        
+        # Convert frame to Image
+        img = Image.fromarray(frame_with_objects)
+        
+        # Convert Image to PhotoImage
+        img = ImageTk.PhotoImage(img)
+        
+        # Keep a reference to avoid garbage collection
+        label_preview.img = img
+        
+        # Update the image
+        label_preview.config(image=img)
+    
+    label_preview.after(10, update_preview)  # Update every 10 milliseconds
+
+# Create a label to display the preview
+label_preview = tk.Label(root)
+label_preview.pack()
+
+# Create a button to capture and save photo
+capture_button = tk.Button(root, text="Capture Photo", command=capture_and_save)
+capture_button.pack(pady=10)
+
+# Create a button to close windows
+close_button = tk.Button(root, text="Close", command=close_windows)
+close_button.pack(pady=5)
+
+# Start updating the preview
+update_preview()
+
+# Run the Tkinter event loop
+root.mainloop()
