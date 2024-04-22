@@ -7,9 +7,6 @@ from PIL import Image, ImageTk
 from datetime import datetime
 
 import os
-
-import sqlite3
-
 import pyaudio
 
 import wave
@@ -299,51 +296,47 @@ class App(ctk.CTk):
 
 
         return resized_frame
-
-
-
-
-
-
-
-
+    def detect_objects(self, frame):
+        # Convert frame to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Apply GaussianBlur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Use adaptive thresholding to obtain a binary image
+        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Draw contours on the frame
+        for contour in contours:
+            # Draw contour
+            cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
+        
+        return frame
 
     def update(self):
-
         ret, frame = self.cap.read()
-
         if ret:
-
-            flipped_frame = cv2.flip(frame, 1)
-
-            resized_frame = self.resize_video_frame(flipped_frame)
-
+            # Detect objects
+            detected_frame = self.detect_objects(frame)
+            
+            flipped_frame = cv2.flip(detected_frame, 1)
+            resized_frame = self.resize_video_frame(flipped_frame)  # Assuming you have this method implemented
             rgb_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
-
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
-
             self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
-
-
-
+            
             if self.recording and self.out is not None:
-
                 self.out.write(flipped_frame)
-
-
-
+                
                 if self.audio_stream:
-
                     audio_data = self.audio_stream.read(1024)
-
                     if audio_data:
-
                         self.audio_frames.append(audio_data)
-
-        self.after(5, self.update)
-
-
-
+                        
+        self.after(5, self.update) 
 
 
     def capture_photo(self):
