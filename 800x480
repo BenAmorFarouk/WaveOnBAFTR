@@ -7,11 +7,20 @@ import sqlite3
 import pyaudio
 import wave
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+from db import doctor
+import threading
+
+
+
 def button_callback():
     print("button pressed")
 
+
+
 class App(ctk.CTk):
+
     def __init__(self):
+        
         super().__init__()
         self.audio_frames = []
         self.title("Main GUI")
@@ -44,7 +53,8 @@ class App(ctk.CTk):
 
         self.cap = cv2.VideoCapture(0)
 
-        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur", fg_color="transparent", font=("Serif", 30))
+        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {doctor}", fg_color="transparent", font=("Serif", 30))
+
         self.label.grid(row=0, column=0, columnspan=2 , pady=5)
         self.canvas = ctk.CTkCanvas(self.main_frame, width=320, height=220)
         self.canvas.grid(row=1, column=0, padx=10, pady=3)
@@ -69,7 +79,8 @@ class App(ctk.CTk):
         self.out = None
         self.recording = False
         self.recording_in_progress = False
-        self.update()
+        #self.update()
+        self.update_threaded()
 
         letter_layout = [
             'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'W', 'X', 'C', 'V', 'B', 'N', 'submit'
@@ -88,7 +99,6 @@ class App(ctk.CTk):
             padx = 2
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 10), command=lambda t=text: self.on_keypad_button_click(t), width=70, height=5)
             button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=2)
-
 
     def on_keypad_button_click(self, text):
         if text == 'Clear':
@@ -123,12 +133,17 @@ class App(ctk.CTk):
         canvas_height = 240
         video_width = frame.shape[1]
         video_height = frame.shape[0]
+        
         scale_x = canvas_width / video_width
         scale_y = canvas_height / video_height
+
         scale_factor = min(scale_x, scale_y)
+
         scaled_width = int(video_width * scale_factor)
         scaled_height = int(video_height * scale_factor)
+
         resized_frame = cv2.resize(frame, (scaled_width, scaled_height))
+
         return resized_frame
 
     def detect_objects(self, frame):
@@ -139,6 +154,13 @@ class App(ctk.CTk):
         for contour in contours:
             cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
         return frame
+        
+
+    def update_threaded(self):
+        # Run the update function in a thread
+        thread = threading.Thread(target=self.update)
+        thread.daemon = True  # Daemonize thread
+        thread.start()
 
     def update(self):
         ret, frame = self.cap.read()
@@ -149,13 +171,16 @@ class App(ctk.CTk):
             rgb_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
             self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+
             if self.recording and self.out is not None:
                 self.out.write(flipped_frame)
+
                 if self.audio_stream:
                     audio_data = self.audio_stream.read(1024)
                     if audio_data:
                         self.audio_frames.append(audio_data)
-        self.after(5, self.update)
+        self.after(40, self.update)
+
 
     def capture_photo(self):
         ret, frame = self.cap.read()
@@ -165,14 +190,13 @@ class App(ctk.CTk):
             image = Image.fromarray(cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB))
             photo_filename = os.path.join(self.folder_path, f"captured_image_{datetime.now().strftime('%H-%M-%S')}.png")
             image.save(photo_filename)
-
     def capture_video(self):
         if not self.recording_in_progress:
-            print("Start recording video")
+            print("faire capture vidéo")
             self.button_3.configure(text="Arrêter capture vidéo")
             self.video_filename = os.path.join(self.folder_path, f"captured_video_{datetime.now().strftime('%H-%M-%S')}.mp4")
             self.audio_filename = os.path.join(self.folder_path, f"audio_{datetime.now().strftime('%H-%M-%S')}.wav")
-            self.out = cv2.VideoWriter(self.video_filename, cv2.VideoWriter_fourcc(*'h264'), 30.0, (640, 480))
+            self.out = cv2.VideoWriter(self.video_filename, cv2.VideoWriter_fourcc(*'h264'), 25.0, (640, 480))
             self.audio_frames  = []
             p = pyaudio.PyAudio()
             self.audio_stream = p.open(format=pyaudio.paInt16,
@@ -184,8 +208,10 @@ class App(ctk.CTk):
             self.recording_in_progress = True
         else:
             print("Stop recording video")
-            self.button_3.configure(text="Faire capture vidêo")
+            self.button_3.configure(text="Faire capture vidéo")
+
             self.out.release()
+
             wf = wave.open(self.audio_filename, 'wb')
             wf.setnchannels(1)
             wf.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
@@ -196,6 +222,7 @@ class App(ctk.CTk):
             self.audio_stream.close()
             print(f"Video file path: {self.video_filename}")
             print(f"Audio file path: {self.audio_filename}")
+
             video_clip = VideoFileClip(self.video_filename)
             audio_clip = AudioFileClip(self.audio_filename)
             video_clip = video_clip.set_audio(audio_clip)
