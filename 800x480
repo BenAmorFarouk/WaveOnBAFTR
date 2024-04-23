@@ -7,8 +7,6 @@ import sqlite3
 import pyaudio
 import wave
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-from db import doctor
-
 def button_callback():
     print("button pressed")
 
@@ -46,7 +44,7 @@ class App(ctk.CTk):
 
         self.cap = cv2.VideoCapture(0)
 
-        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur {doctor}", fg_color="transparent", font=("Serif", 30))
+        self.label = ctk.CTkLabel(self.main_frame, text=f"Bonjour Docteur", fg_color="transparent", font=("Serif", 30))
         self.label.grid(row=0, column=0, columnspan=2 , pady=5)
         self.canvas = ctk.CTkCanvas(self.main_frame, width=320, height=220)
         self.canvas.grid(row=1, column=0, padx=10, pady=3)
@@ -91,14 +89,6 @@ class App(ctk.CTk):
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 10), command=lambda t=text: self.on_keypad_button_click(t), width=70, height=5)
             button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=2)
 
-    def execute_sql_from_file(self,filename):
-        conn = sqlite3.connect('doctors.db')
-        cursor = conn.cursor()
-        with open(filename,'r') as file:
-            sql_commands = file.read()
-            cursor.executescript(sql_commands)
-        conn.commit()
-        conn.close()
 
     def on_keypad_button_click(self, text):
         if text == 'Clear':
@@ -143,9 +133,9 @@ class App(ctk.CTk):
 
     def detect_objects(self, frame):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5,5),0)
+        blurred = cv2.GaussianBlur(gray, (11,11),0)
         _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
             cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
         return frame
