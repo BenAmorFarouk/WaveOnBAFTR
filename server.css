@@ -1,0 +1,21 @@
+.split-container {
+    display: flex;
+    height: 100vh; /* Adjust the height as needed */
+    overflow: hidden; /* Hide overflow content */
+  }
+  
+  .left-frame,
+  .right-frame {
+    flex: 1;
+    height: 100%;
+  }
+  
+  .left-frame {
+    border-right: 2px solid #ccc; /* Vertical line */
+  }
+  
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none; /* Remove border */
+  }
