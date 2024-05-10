@@ -10,20 +10,15 @@ class IDThread(Thread):
         self.device_id = None
 
     def run(self):
-        times = 0
-        while times < 0.5:
-            try:
-                with open(self.base_dir, "r") as file:
-                    device_ids = file.read().strip().split()
-                    if device_ids:
-                        self.device_id = device_ids[-1]
-                        if not self.device_id.startswith("not"):
-                            print(f"Valid device ID found: {self.device_id}")
-                            break
-            except Exception as e:
-                print(f"Error reading device IDs: {e}")
-            time.sleep(1)
-            times += 0.3
+        try:
+            with open(self.base_dir, "r") as file:
+                device_ids = file.read().strip().split()
+                if device_ids:
+                    self.device_id = device_ids[-1]
+                    if not self.device_id.startswith("not"):
+                        print(f"Valid device ID found: {self.device_id}")
+        except Exception as e:
+            print(f"Error reading device IDs: {e}")
 
 def connect_database():
     connection = sqlite3.connect("doctor.db")
@@ -34,27 +29,31 @@ def find_device(cursor, device_id):
     cursor.execute("SELECT * FROM example WHERE id=?", (device_id,))
     return cursor.fetchone()
 
-# Initialize and start the thread
-base_dir = '/sys/devices/w1_bus_master1/w1_master_slaves'
-thread_a = IDThread(base_dir)
-thread_a.start()
-thread_a.join()
+def main_loop():
+    base_dir = '/sys/devices/w1_bus_master1/w1_master_slaves'
+    while True:
+        thread_a = IDThread(base_dir)
+        thread_a.start()
+        thread_a.join()
 
-# Check if a valid device ID was found
-if thread_a.device_id:
-    device_id = thread_a.device_id
-    print("Device ID:", device_id)
+        if thread_a.device_id:
+            device_id = thread_a.device_id
+            print("Device ID:", device_id)
 
-    # Database operations
-    connection, cursor = connect_database()
-    row = find_device(cursor, device_id)
+            connection, cursor = connect_database()
+            row = find_device(cursor, device_id)
 
-    if row:
-        First_name, Full_name, url = row[1], row[2], row[3]
-        print(f"Found: {First_name}, {Full_name}, {url}")
-    else:
-        print(f"Device ID {device_id} not found in the database.")
+            if row:
+                First_name, Full_name, url = row[1], row[2], row[3]
+                print(f"Found: {First_name}, {Full_name}, {url}")
+                connection.close()
+                break  # Stop the loop if the ID is found and data is retrieved
+            else:
+                print(f"Device ID {device_id} not found in the database. Retrying...")
+                connection.close()
+        else:
+            print("No valid device ID was found. Retrying...")
 
-    connection.close()
-else:
-    print("No valid device ID was found.")
+        time.sleep(5)  # Pause before the next loop iteration to reduce load
+
+main_loop()
