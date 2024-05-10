@@ -1,0 +1,32 @@
+import os
+import time
+from threading import Thread
+
+class IDThread(Thread):
+    def __init__(self):
+        super().__init__()
+        self.device_id = None
+        self.base_dir = '/sys/devices/w1_bus_master1/w1_master_slaves'
+
+    def run(self):
+        times = 0
+        while times < 5:
+            try:
+                with open(self.base_dir, "r") as file:
+                    device_ids = file.read().strip().split()
+                    if device_ids:
+                        self.device_id = device_ids[-1]  # Always take the latest ID
+                        if not self.device_id.startswith("not"):
+                            print(f"Valid device ID found: {self.device_id}")
+                            break
+            except Exception as e:
+                print(f"Error reading device IDs: {e}")
+            time.sleep(1)
+            times += 1
+
+# Usage of the thread
+thread_a = IDThread()
+thread_a.start()
+thread_a.join()
+
+print("Device ID:", thread_a.device_id)
