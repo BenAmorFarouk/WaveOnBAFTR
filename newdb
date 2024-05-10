@@ -1,0 +1,34 @@
+import sqlite3
+
+def connect_database():
+    connection = sqlite3.connect("doctor.db")
+    cursor = connection.cursor()
+    return connection, cursor
+
+def insert_example_data(cursor):
+    data = [
+        ('0', 'Farouk', 'Farouk Ben Amor', 'URL'),
+        ('01-000001759e7b', 'Racem', 'Racem Taamallah', 'URL'),
+        ('0', 'Houssem', 'Houssem Ouali', 'URL')
+    ]
+    cursor.executemany("INSERT INTO example VALUES (?, ?, ?, ?)", data)
+
+def find_device(cursor, device_id):
+    cursor.execute("SELECT * FROM example WHERE id=?", (device_id,))
+    return cursor.fetchone()
+
+connection, cursor = connect_database()
+# Ensure to comment out the next line after the first run to avoid inserting duplicate data
+# insert_example_data(cursor)
+
+device_id = thread_a.device_id  # Use the device ID from the thread
+row = find_device(cursor, device_id)
+
+if row:
+    First_name, Full_name, url = row[1], row[2], row[3]
+    print(f"Found: {First_name}, {Full_name}, {url}")
+else:
+    print(f"Device ID {device_id} not found in the database.")
+
+connection.commit()  # Commit here if any insert/update/delete operations were performed
+connection.close()
