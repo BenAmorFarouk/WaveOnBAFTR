@@ -11,7 +11,7 @@ class IDThread(Thread):
 
     def run(self):
         times = 0
-        while times < 5:
+        while times < 0.5:
             try:
                 with open(self.base_dir, "r") as file:
                     device_ids = file.read().strip().split()
@@ -23,7 +23,7 @@ class IDThread(Thread):
             except Exception as e:
                 print(f"Error reading device IDs: {e}")
             time.sleep(1)
-            times += 1
+            times += 0.3
 
 def connect_database():
     connection = sqlite3.connect("doctor.db")
