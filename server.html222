@@ -9,12 +9,12 @@
         body {
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100%;
             display: flex;
         }
 
         #left-frame{
-            flex: 1; /* 1 part of the total 3 parts */
+            flex: 1;
             padding: 10px;
             box-sizing: border-box;
             background-color: #dddddd;
@@ -46,12 +46,12 @@
         textarea {
             background-color: #007bff;
             color: #ffffff;
-            font-size: 12.5px; /* Reduced font size to 8px */
-            padding: 12.5px 1px; /* Reduced padding for shorter buttons */
+            font-size: 12.5px;
+            padding: 12.5px 1px;
             border: none;
             cursor: pointer;
             border-radius: 5px;
-            margin: 10px 0; /* Increased margin for better spacing */
+            margin: 10px 0;
             width: calc(100% - 32px);
         }
 
@@ -65,9 +65,7 @@
         button:disabled,
         input[type="file"]:disabled {
             background-color: #c0c0c0;
-            /* Grey color */
             color: #808080;
-            /* Lighter grey for text */
             cursor: not-allowed;
         }
 
@@ -82,15 +80,13 @@
             margin: 0 10px;
         }
 
-        /* Styling for title input and paragraph textarea */
         #title-input,
         #paragraph-input {
             background-color: #d3d3d3;
             color: #ffffff;
             padding: 8px;
-            cursor: text
+            cursor: text;
         }
-
     </style>
 </head>
 <body>
@@ -104,8 +100,9 @@
         <button id="show-contours-button">Show Contours</button>
         <button id="select-contour-button" disabled>Select Contour</button>
         <button id="draw-contour-button">Draw Contour</button>
-        <button id="end-draw-button" disabled>End Draw</button>
+        <button id="end-draw-button">End Draw</button>
         <button id="calculate-distance-button">Calculate Distance</button>
+        <button id="clear-draw-button">Clear Draw</button>
         <input type="text" id="title-input" placeholder="Enter Title">
         <textarea id="paragraph-input" rows="4" placeholder="Enter Paragraph"></textarea>
         <button id="save-button">Save Image and Text</button>
@@ -134,6 +131,7 @@
         document.getElementById('end-draw-button').addEventListener('click', endDraw);
         document.getElementById('calculate-distance-button').addEventListener('click', calculateDistance);
         document.getElementById('save-button').addEventListener('click', saveImageAndText);
+        document.getElementById('clear-draw-button').addEventListener('click', clearDraw);
 
         const thresholdSlider = document.getElementById('threshold-slider');
         const thresholdValueLabel = document.getElementById('threshold-value');
@@ -162,7 +160,6 @@
                     }
                     img.src = e.target.result;
                 }
-               
                 reader.readAsDataURL(file);
             }
         }
@@ -182,7 +179,6 @@
             let gray = new cv.Mat();
             cv.cvtColor(image, gray, cv.COLOR_RGBA2GRAY);
 
-            // Apply thresholding
             let thresholdValue = parseInt(thresholdSlider.value);
             let maxValue = 255;
             let thresh = new cv.Mat();
@@ -220,7 +216,6 @@
                 if (cv.pointPolygonTest(contour, new cv.Point(x, y), false) >= 0) {
                     if (newSelectedContour) {
                         if (selectedContour) {
-                            // Delete the previously selected contour
                             let image = cv.imread('canvas');
                             for (let i = 0; i < contours.size(); ++i) {
                                 if (contours.get(i) !== selectedContour) {
@@ -237,7 +232,6 @@
                     cv.imshow('canvas', image);
                     canvas.removeEventListener('click', onClick);
 
-                    // Calculate the area of the selected contour
                     let pixelsInside = cv.contourArea(selectedContour);
                     let areaInCm2 = pixelsInside / (scale * scale);
                     let statusMessage = `Contour selected. Area: ${areaInCm2.toFixed(2)} cm²`;
@@ -248,6 +242,8 @@
         }
 
         function drawContour() {
+            drawnContour = [];
+
             canvas.addEventListener('click', onDrawClick);
             showMessage("Click to draw points for the contour.");
         }
@@ -258,60 +254,102 @@
             let y = event.clientY - rect.top;
             drawnContour.push({ x: x, y: y });
 
-            // Draw the point on the canvas
             ctx.fillStyle = 'red';
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, 2 * Math.PI);
             ctx.fill();
             ctx.closePath();
+
+            if (drawnContour.length > 1) {
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(drawnContour[drawnContour.length - 2].x, drawnContour[drawnContour.length - 2].y);
+                ctx.lineTo(drawnContour[drawnContour.length - 1].x, drawnContour[drawnContour.length - 1].y);
+                ctx.stroke();
+                ctx.closePath();
+            }
         }
 
         function endDraw() {
             canvas.removeEventListener('click', onDrawClick);
-            showMessage("Contour drawing ended.");
-            if (drawnContour.length > 0) {
-                // Draw the contour on the canvas
+
+            if (drawnContour.length > 1) {
                 ctx.strokeStyle = 'blue';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(drawnContour[0].x, drawnContour[0].y);
-                for (let i = 1; i < drawnContour.length; i++) {
-                    ctx.lineTo(drawnContour[i].x, drawnContour[i].y);
-                }
-                ctx.closePath();
+                ctx.moveTo(drawnContour[drawnContour.length - 1].x, drawnContour[drawnContour.length - 1].y);
+                ctx.lineTo(drawnContour[0].x, drawnContour[0].y);
                 ctx.stroke();
+                ctx.closePath();
             }
+
+            showMessage("Contour drawing ended.");
         }
 
         function calculateDistance() {
-            if (drawnContour.length < 2) {
-                alert("Please draw at least two points to calculate the distance.");
-                return;
+        
+            points = [];
+            canvas.addEventListener('click', selectPointForDistance);
+            showMessage("Click two points to calculate the distance.");
             }
 
-            let dx = drawnContour[1].x - drawnContour[0].x;
-            let dy = drawnContour[1].y - drawnContour[0].y;
-            let distanceInPixels = Math.sqrt(dx * dx + dy * dy);
-            let distanceInCm = distanceInPixels / scale;
+            function selectPointForDistance(event) {
+            let rect = canvas.getBoundingClientRect();
+            let x = (event.clientX - rect.left) * (canvas.width / rect.width);
+            let y = (event.clientY - rect.top) * (canvas.height / rect.height);
+            points.push([x, y]);
 
-            showMessage(`Distance: ${distanceInCm.toFixed(2)} cm`);
+            // Draw the selected points
+            ctx.fillStyle = "blue";
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+
+            if (points.length === 2) {
+                canvas.removeEventListener('click', selectPointForDistance);
+
+                // Draw the line between the two points
+                ctx.beginPath();
+                ctx.moveTo(points[0][0], points[0][1]);
+                ctx.lineTo(points[1][0], points[1][1]);
+                ctx.strokeStyle = "blue";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Calculate the distance
+                let dx = points[1][0] - points[0][0];
+                let dy = points[1][1] - points[0][1];
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                let distanceInMm = calculatePixelsToMm(distance);
+                showMessage(`Distance: ${distance.toFixed(2)} pixels, ${distanceInMm.toFixed(2)} mm`);
+            }
         }
-
         function saveImageAndText() {
             let title = document.getElementById('title-input').value;
             let paragraph = document.getElementById('paragraph-input').value;
 
-            // Draw the title and paragraph on the canvas
             ctx.font = '16px Arial';
             ctx.fillStyle = 'black';
             ctx.fillText(title, 10, 20);
             ctx.fillText(paragraph, 10, 40);
 
-            // Save the image with the text
             let link = document.createElement('a');
             link.href = canvas.toDataURL('image/png');
             link.download = 'image_with_text.png';
             link.click();
+        }
+
+        function clearDraw() {
+            drawnContour = [];
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (image) {
+                cv.imshow(canvas, image);
+            }
+
+            showMessage("Contour drawing cleared.");
         }
 
         function showMessage(message) {
@@ -319,7 +357,6 @@
             messageElement.textContent = message;
             messageContainer.appendChild(messageElement);
 
-            // Automatically remove the message after 3 seconds
             setTimeout(() => {
                 messageElement.remove();
             }, 3000);
