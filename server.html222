@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contour Detection</title>
     <script src="https://docs.opencv.org/3.4.0/opencv.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -98,9 +100,9 @@
             <span id="threshold-value">255</span>
         </div>
         <button id="show-contours-button">Show Contours</button>
-        <button id="select-contour-button" disabled>Select Contour</button>
+        <button id="select-contour-button">Select Contour</button>
         <button id="draw-contour-button">Draw Contour</button>
-        <button id="end-draw-button">End Draw</button>
+        <button id="end-draw-button" >End Draw</button>
         <button id="calculate-distance-button">Calculate Distance</button>
         <button id="clear-draw-button">Clear Draw</button>
         <input type="text" id="title-input" placeholder="Enter Title">
@@ -233,27 +235,22 @@
                     canvas.removeEventListener('click', onClick);
 
                     let pixelsInside = cv.contourArea(selectedContour);
-                    let areaInCm2 = pixelsInside / (scale * scale);
-                    let statusMessage = `Contour selected. Area: ${areaInCm2.toFixed(2)} cm²`;
-                    statusLabel.textContent = statusMessage;
+                    let areaInMm2 = pixelsInside / (scale * scale);
+                    let statusMessage = `Contour selected. Area: ${areaInMm2.toFixed(2)} mm²`;
+                    showMessage(statusMessage);
                     break;
                 }
             }
         }
 
-        function drawContour() {
-            drawnContour = [];
 
-            canvas.addEventListener('click', onDrawClick);
-            showMessage("Click to draw points for the contour.");
-        }
 
         function onDrawClick(event) {
             let rect = canvas.getBoundingClientRect();
             let x = event.clientX - rect.left;
             let y = event.clientY - rect.top;
             drawnContour.push({ x: x, y: y });
-
+            
             ctx.fillStyle = 'red';
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, 2 * Math.PI);
@@ -268,10 +265,20 @@
                 ctx.lineTo(drawnContour[drawnContour.length - 1].x, drawnContour[drawnContour.length - 1].y);
                 ctx.stroke();
                 ctx.closePath();
+                
             }
         }
 
+        function drawContour() {
+            drawnContour = [];
+
+            canvas.addEventListener('click', onDrawClick);
+            let drawmsg = "Click to draw points for the contour.";
+            showMessage(drawmsg);
+        }
+
         function endDraw() {
+            console.log("End Draw function called.");
             canvas.removeEventListener('click', onDrawClick);
 
             if (drawnContour.length > 1) {
@@ -282,85 +289,154 @@
                 ctx.lineTo(drawnContour[0].x, drawnContour[0].y);
                 ctx.stroke();
                 ctx.closePath();
-            }
 
-            showMessage("Contour drawing ended.");
+                let pixelsInside = calculatePixelsInsideDrawnContour();
+                let scale = 1; // Update this scale factor as needed
+                let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
+
+                let statusMessage = `Contour drawn. Area: ${areaInMm2.toFixed(2)} mm²`;
+                showMessage(statusMessage);
+
+            } else {
+                console.log("No contour drawn.");
+                showMessage("No contour drawn.");
+            }
         }
 
-        function calculateDistance() {
-        
-            points = [];
-            canvas.addEventListener('click', selectPointForDistance);
-            showMessage("Click two points to calculate the distance.");
-            }
 
-            function selectPointForDistance(event) {
-            let rect = canvas.getBoundingClientRect();
-            let x = (event.clientX - rect.left) * (canvas.width / rect.width);
-            let y = (event.clientY - rect.top) * (canvas.height / rect.height);
-            points.push([x, y]);
 
-            // Draw the selected points
-            ctx.fillStyle = "blue";
+
+
+    function calculateDistance() {
+        points = [];
+        canvas.addEventListener('click', selectPointForDistance);
+        showMessage("Click two points to calculate the distance.");
+    }
+
+    function selectPointForDistance(event) {
+        let rect = canvas.getBoundingClientRect();
+        let x = (event.clientX - rect.left) * (canvas.width / rect.width);
+        let y = (event.clientY - rect.top) * (canvas.height / rect.height);
+        points.push([x, y]);
+
+        // Draw the selected points
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+
+        if (points.length === 2) {
+            canvas.removeEventListener('click', selectPointForDistance);
+
+            // Draw the line between the two points
             ctx.beginPath();
-            ctx.arc(x, y, 3, 0, 2 * Math.PI);
-            ctx.fill();
+            ctx.moveTo(points[0][0], points[0][1]);
+            ctx.lineTo(points[1][0], points[1][1]);
+            ctx.strokeStyle = "blue";
+            ctx.lineWidth = 2;
+            ctx.stroke();
 
-            if (points.length === 2) {
-                canvas.removeEventListener('click', selectPointForDistance);
-
-                // Draw the line between the two points
-                ctx.beginPath();
-                ctx.moveTo(points[0][0], points[0][1]);
-                ctx.lineTo(points[1][0], points[1][1]);
-                ctx.strokeStyle = "blue";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // Calculate the distance
-                let dx = points[1][0] - points[0][0];
-                let dy = points[1][1] - points[0][1];
-                let distance = Math.sqrt(dx * dx + dy * dy);
-                let distanceInMm = calculatePixelsToMm(distance);
-                showMessage(`Distance: ${distance.toFixed(2)} pixels, ${distanceInMm.toFixed(2)} mm`);
-            }
+            // Calculate the distance
+            let dx = points[1][0] - points[0][0];
+            let dy = points[1][1] - points[0][1];
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let distanceInMm = calculatePixelsToMm(distance);
+            showMessage(`Distance: ${distance.toFixed(2)} pixels, ${distanceInMm.toFixed(2)} mm`);
         }
-        function saveImageAndText() {
-            let title = document.getElementById('title-input').value;
-            let paragraph = document.getElementById('paragraph-input').value;
+    }
 
-            ctx.font = '16px Arial';
-            ctx.fillStyle = 'black';
-            ctx.fillText(title, 10, 20);
-            ctx.fillText(paragraph, 10, 40);
+    function saveImageAndText() {
+    let title = document.getElementById('title-input').value;
+    let paragraph = document.getElementById('paragraph-input').value;
 
-            let link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            link.download = 'image_with_text.png';
-            link.click();
+    // Draw dimensions at the bottom right corner of the image
+    let dimensionsText = `Dimensions: ${canvas.width} x ${canvas.height}`;
+    ctx.font = '16px Arial';
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'right';
+    ctx.fillText(dimensionsText, canvas.width - 10, canvas.height - 10);
+
+    // Save the image file
+    canvas.toBlob(function(blob) {
+        saveAs(blob, `${title}.png`);
+    });
+
+    // Save the text file
+    let textContent = `Title: ${title}\n\n${paragraph}`;
+    let textBlob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    saveAs(textBlob, `${title}.txt`);
+}
+
+
+
+
+    function clearDraw() {
+        drawnContour = [];
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (image) {
+            cv.imshow(canvas, image);
         }
 
-        function clearDraw() {
-            drawnContour = [];
+        showMessage("Contour cleared.");
+   
+    }
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function calculatePixelsInsideDrawnContour() {
+        // Create a mask canvas
+        let maskCanvas = document.createElement('canvas');
+        maskCanvas.width = canvas.width;
+        maskCanvas.height = canvas.height;
+        let maskCtx = maskCanvas.getContext('2d');
 
-            if (image) {
-                cv.imshow(canvas, image);
-            }
-
-            showMessage("Contour drawing cleared.");
+        // Draw the drawnContour on the mask canvas
+        maskCtx.beginPath();
+        maskCtx.moveTo(drawnContour[0].x, drawnContour[0].y);
+        for (let i = 1; i < drawnContour.length; i++) {
+            maskCtx.lineTo(drawnContour[i].x, drawnContour[i].y);
         }
+        maskCtx.closePath();
+        maskCtx.fillStyle = '#ffffff'; // fill the contour with white
+        maskCtx.fill();
 
-        function showMessage(message) {
-            let messageElement = document.createElement('p');
-            messageElement.textContent = message;
-            messageContainer.appendChild(messageElement);
+        // Create an ImageData object from the mask canvas
+        let maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
 
+        // Create a new Mat from the mask data
+        let maskMat = cv.matFromImageData(maskData);
+
+        // Convert the mask to a single-channel grayscale image
+        let maskGray = new cv.Mat();
+        cv.cvtColor(maskMat, maskGray, cv.COLOR_RGBA2GRAY);
+
+        // Use the mask to calculate pixels inside drawn contour
+        let pixelsInside = cv.countNonZero(maskGray);
+
+        // Release memory
+        maskCanvas.remove();
+        maskMat.delete();
+        maskGray.delete();
+
+        return pixelsInside;
+    }
+
+    function calculatePixelsToMm(pixels) {
+        // You can modify this function to convert pixels to millimeters based on your specific requirements
+        // For example, you might need to know the physical size of the image to perform an accurate conversion
+        // This is a simple placeholder function
+        return pixels * 0.1; // Placeholder conversion factor
+    }
+
+    function showMessage(message) {
+            let p = document.createElement('p');
+            p.textContent = message;
+            messageContainer.appendChild(p);
             setTimeout(() => {
-                messageElement.remove();
-            }, 3000);
+                messageContainer.removeChild(p);
+            }, 15000);
+
         }
-    </script>
+</script>
 </body>
 </html>
