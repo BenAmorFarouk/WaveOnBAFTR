@@ -169,13 +169,23 @@
         var isshow = false;
         function detectAndDisplayContours() {
             if (!isshow) {
+                // Set threshold to 127
+                thresholdSlider.value = 127;
+                thresholdValueLabel.textContent = 127;
+                
+                // Call applyThresholdAndDisplay function
                 applyThresholdAndDisplay();
+                
+                // Enable/disable buttons
                 document.getElementById('select-contour-button').disabled = false;
                 document.getElementById('draw-contour-button').disabled = false;
                 document.getElementById('calculate-distance-button').disabled = false;
+                
+                // Update isshow flag
                 isshow = true;
             }
         }
+
 
         function applyThresholdAndDisplay() {
             let gray = new cv.Mat();
@@ -349,12 +359,35 @@
     let title = document.getElementById('title-input').value;
     let paragraph = document.getElementById('paragraph-input').value;
 
-    // Draw dimensions at the bottom right corner of the image
-    let dimensionsText = `Dimensions: ${canvas.width} x ${canvas.height}`;
+    // Check if a contour is selected or drawn
+    let areaOrDistance = "";
+    if (selectedContour) {
+        // If a contour is selected, use its area
+        let pixelsInside = cv.contourArea(selectedContour);
+        let areaInMm2 = pixelsInside / (scale * scale);
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
+    } else if (drawnContour.length > 1) {
+        // If a contour is drawn, calculate its area
+        let pixelsInside = calculatePixelsInsideDrawnContour();
+        let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
+    } else if (points.length === 2) {
+        // If two points are selected, use the distance between them
+        let dx = points[1][0] - points[0][0];
+        let dy = points[1][1] - points[0][1];
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        let distanceInMm = calculatePixelsToMm(distance);
+        areaOrDistance = `Distance: ${distance.toFixed(2)} pixels, ${distanceInMm.toFixed(2)} mm`;
+    } else {
+        // Otherwise, use a default message
+        areaOrDistance = "No measurement available";
+    }
+
+    // Draw the area/distance text at the bottom right corner of the image
     ctx.font = '16px Arial';
     ctx.fillStyle = 'black';
     ctx.textAlign = 'right';
-    ctx.fillText(dimensionsText, canvas.width - 10, canvas.height - 10);
+    ctx.fillText(areaOrDistance, canvas.width - 10, canvas.height - 10);
 
     // Save the image file
     canvas.toBlob(function(blob) {
@@ -440,4 +473,3 @@
 </script>
 </body>
 </html>
- 
