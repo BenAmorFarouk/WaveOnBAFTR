@@ -1,7 +1,7 @@
 body {
     margin: 0;
     padding: 0;
-    height: 100vh;
+    height: 700px;
     display: flex;
 }
 
@@ -85,7 +85,7 @@ input[type="file"]:disabled {
 #title-input,
 #paragraph-input {
     background-color: #d3d3d3;
-    color: #ffffff;
+    color: #000000;
     padding: 8px;
     cursor: text;
 }
