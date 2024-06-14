@@ -131,7 +131,7 @@ function onClick(event) {
 
             let pixelsInside = cv.contourArea(selectedContour);
             let areaInMm2 = pixelsInside / (scale * scale);
-            let statusMessage = `Contour selected. Area: ${areaInMm2.toFixed(2)} mm²`;
+            let statusMessage = `Contour selected. Area: ${areaInMm2.toFixed(2)} mmÂ²`;
             showMessage(statusMessage);
             break;
         }
@@ -188,7 +188,7 @@ function endDraw() {
         let scale = 1; // Update this scale factor as needed
         let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
 
-        let statusMessage = `Contour drawn. Area: ${areaInMm2.toFixed(2)} mm²`;
+        let statusMessage = `Contour drawn. Area: ${areaInMm2.toFixed(2)} mmÂ²`;
         showMessage(statusMessage);
 
     } else {
@@ -298,12 +298,12 @@ function saveImageAndText() {
         // If a contour is selected, use its area
         let pixelsInside = cv.contourArea(selectedContour);
         let areaInMm2 = pixelsInside / (scale * scale);
-        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mmÂ²`;
     } else if (drawnContour.length > 1) {
         // If a contour is drawn, calculate its area
         let pixelsInside = calculatePixelsInsideDrawnContour();
         let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
-        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mmÂ²`;
     } else if (points.length === 2) {
         // If two points are selected, use the distance between them
         let dx = points[1][0] - points[0][0];
@@ -357,77 +357,116 @@ let getImageModal = document.getElementById('getImageModal');
 let allImages= [];
 const directoryUrl = 'http://192.168.1.145:5000/get_images';
 let modelSelectImageSrc= "";
+let folders= document.querySelectorAll('.folder');
+
+renderFolder = (folder)=>{
+    imageBtnsHtml= "";
+    const imageButtons = folder.image_urls.forEach(image => {
+        imageBtnsHtml+=`
+        <button class="image-btn" data-image-btn>
+            <img src="http://192.168.1.145:5000/view_folder/main/${image.substring(image.indexOf('DATA/'))
+            }" alt="">
+        </button>
+    `
+    });
+    let folderHtml = document.createElement('div');
+    folderHtml.classList.add('folder');
+    const folderContent= `<button class="folder-name" data-folder-toggler>
+                            <span class="folder-name-label">${folder.folder_name}</span>
+                            <span class="folder-toggler" data-folder-toggler-icon>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                </svg>                                                                                     
+                            </span>
+                        </button>
+                        <div class="folder-images" data-folder-images>
+                            ${imageBtnsHtml}
+                        </div>`;
+
+    folderHtml.innerHTML=folderContent;
+    return folderHtml;
+}
+
 const getImagesFromServer = ()=>{
 
     fetch(directoryUrl)
         .then(response => {
             return response.json();
         }).then(data=> {
-            console.log(data);
-            allImages = data;
-            renderImages();
+            data.forEach(folder=>{
+                getImageModal.querySelector('.modal__container').querySelector('.folders').appendChild(renderFolder(folder));
+            })
+            foldersBtns = document.querySelectorAll('[data-folder-toggler]');
+            folders= document.querySelectorAll('.folder');
+            console.log(foldersBtns);
         })
         .catch(error => console.error('Error fetching directory:', error));
 }
 
 // Get Image from server function
-if(selectImageBtn){
-    selectImageBtn.addEventListener('click',()=>{
-        getImageModal.classList.toggle('c-block')
-        // getImagesFromServer();
-    })
-}
 
-
-const renderImages = ()=>{
-    allImages.forEach(image =>{
-        const imgTag = document.createElement('img');
-        const parts = image.split('/');
-        const filename = parts[parts.length - 1];
-        imgTag.src= `http://192.168.1.145:5000/view_folder/main/DATA/2024-05-14/${filename}`
-        imgTag.alt= image
-
-        getImageModal.appendChild(imgTag)
-    })
-}
-
-const foldersBtns = document.querySelectorAll('[data-folder-toggler]');
-if(foldersBtns){
-    foldersBtns.forEach(btn =>{
-        btn.addEventListener('click',()=>{
-            btn.nextElementSibling.classList.toggle('c-grid');
-            btn.querySelector('[data-folder-toggler-icon]').classList.toggle('c-rotate-90')
-        })
-    })
-}
-
-const imageBtns = document.querySelectorAll('[data-image-btn]');
-if(imageBtns){
-    imageBtns.forEach(btn =>{
-        btn.addEventListener('click',()=>{
-            imageBtns.forEach(rbtn =>{
-                rbtn.classList.remove('image-btn--active')
-            })
-            btn.classList.add('image-btn--active')
-            modelSelectImageSrc= btn.querySelector('img').getAttribute('src');
-            console.log(modelSelectImageSrc);
-        })
-    })
-}
-
-const confirmSelectionBtn = document.querySelector('[data-confirm-selection-btn]');
-confirmSelectionBtn.addEventListener('click',()=>{
-    let finalSelectedImage = document.createElement('img');
-    finalSelectedImage.src= modelSelectImageSrc;
-    canvas.width = finalSelectedImage.width;
-    canvas.height = finalSelectedImage.height;
-    ctx.clearRect(0,0,canvas.width, canvas.height);
-    ctx.drawImage(finalSelectedImage,0,0);
-    image = cv.imread(finalSelectedImage);
-    closeModal();
-})
 
 
 const closeModal = ()=>{
     getImageModal.classList.remove('c-block');
 }
+
+
+
+
+(function name(params) {
+    getImagesFromServer();
+    setTimeout(()=>{
+        if(selectImageBtn){
+            selectImageBtn.addEventListener('click',()=>{
+                getImageModal.classList.toggle('c-block')
+            })
+        }
+        
+        let foldersBtns = document.querySelectorAll('[data-folder-toggler]');
+        if(foldersBtns){
+            foldersBtns.forEach(btn =>{
+                btn.addEventListener('click',()=>{
+                    console.log("hhhh");
+                    btn.nextElementSibling.classList.toggle('c-grid');
+                    btn.querySelector('[data-folder-toggler-icon]').classList.toggle('c-rotate-90')
+                })
+            })
+        }
+        
+        let imageBtns = document.querySelectorAll('[data-image-btn]');
+        if(imageBtns){
+            imageBtns.forEach(btn =>{
+                btn.addEventListener('click',()=>{
+                    imageBtns.forEach(rbtn =>{
+                        rbtn.classList.remove('image-btn--active')
+                    })
+                    btn.classList.add('image-btn--active')
+                    modelSelectImageSrc= btn.querySelector('img').getAttribute('src');
+                })
+            })
+        }
+        
+        const confirmSelectionBtn = document.querySelector('[data-confirm-selection-btn]');
+        if(confirmSelectionBtn){
+            confirmSelectionBtn.addEventListener('click',()=>{
+                let finalSelectedImage = document.createElement('img');
+                finalSelectedImage.src= modelSelectImageSrc;
+                closeModal();
+                canvas.width = finalSelectedImage.width;
+                canvas.height = finalSelectedImage.height;
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                ctx.drawImage(finalSelectedImage,0,0);
+                image = cv.imread(finalSelectedImage);
+                
+            })    
+        }
+        const cancelBtn = document.querySelector('[data-cancel-btn]');
+        if(cancelBtn){
+            cancelBtn.addEventListener('click',()=>{
+            closeModal();
+        })
+        }
+        console.log("DONEE");
+    },1000)
+})();
