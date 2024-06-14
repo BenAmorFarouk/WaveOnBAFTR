@@ -1,7 +1,9 @@
 import os
-from flask import Flask, request, render_template, redirect, url_for, send_file
+from flask import Flask, request, render_template, redirect, url_for, send_file, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__, static_url_path='/static')
+CORS(app,origin='*')
 
 ftp_started = False  # Flag to check if FTP service has been started
 
@@ -20,6 +22,36 @@ def index():
     setup_ftp()  # Start FTP service if not started already
     # Redirect root route to view_folder route
     return redirect(url_for('view_folder', subfolder='main'))
+
+def get_image_urls(directory):
+    image_urls = []
+    # Iterate through each file in the directory
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        # If it's a directory, recursively call get_image_urls
+        if os.path.isdir(file_path):
+            image_urls.extend(get_image_urls(file_path))
+        # If it's an image file, add its URL
+        elif filename.endswith(('.png', '.jpg', '.jpeg')):
+            image_urls.append(url_for('static', filename=file_path))
+    return image_urls
+
+@app.route('/get_images', methods=['GET'])
+def get_images():
+    base_directory = '/home/pi/main/DATA/'
+    folder_list = []
+    
+    # Iterate through each folder in the base directory
+    for folder_name in os.listdir(base_directory):
+        folder_path = os.path.join(base_directory, folder_name)
+        if os.path.isdir(folder_path):
+            folder_info = {
+                'folder_name': folder_name,
+                'image_urls': get_image_urls(folder_path)
+            }
+            folder_list.append(folder_info)
+    
+    return jsonify(folder_list)
 
 @app.route('/ftp.html', methods=['POST', 'GET'])
 def ftp_fun():
@@ -53,7 +85,7 @@ def view_folder(subfolder):
          return send_file(folder_path)
      else:
          print("Invalid path:", folder_path)
-         return "yy"
+         return "wrong folder path"
 
 @app.route('/image')
 def get_image():
