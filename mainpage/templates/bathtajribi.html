@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contour Detection</title>
+    <script src="https://docs.opencv.org/3.4.0/opencv.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+        }
+
+        #left-frame{
+            flex: 1;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #dddddd;
+            border: 4px solid black;
+        }
+
+        #right-frame {
+            flex: 2;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #dddddd;
+            border: 4px solid black;
+        }
+
+        canvas {
+            border: 1px solid black;
+            max-width: 100%;
+            height: auto;
+        }
+
+        #message-container {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        button,
+        input[type="file"],
+        input[type="text"],
+        textarea {
+            background-color: #007bff;
+            color: #ffffff;
+            font-size: 12.5px;
+            padding: 12.5px 1px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px 0;
+            width: calc(100% - 32px);
+        }
+
+        button:hover,
+        input[type="file"]:hover,
+        input[type="text"]:hover,
+        textarea:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled,
+        input[type="file"]:disabled {
+            background-color: #c0c0c0;
+            color: #808080;
+            cursor: not-allowed;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .slider-container input {
+            flex-grow: 1;
+            margin: 0 10px;
+        }
+
+        #title-input,
+        #paragraph-input {
+            background-color: #d3d3d3;
+            color: #ffffff;
+            padding: 8px;
+            cursor: text;
+        }
+    </style>
+</head>
+<body>
+    <div id="left-frame">
+        <input type="file" id="file-input" accept="image/*">
+        <div class="slider-container">
+            <label for="threshold-slider">Threshold:</label>
+            <input type="range" id="threshold-slider" min="0" max="255" value="255">
+            <span id="threshold-value">255</span>
+        </div>
+        <button id="show-contours-button">Show Contours</button>
+        <button id="select-contour-button">Select Contour</button>
+        <button id="draw-contour-button">Draw Contour</button>
+        <button id="end-draw-button" >End Draw</button>
+        <button id="calculate-distance-button">Calculate Distance</button>
+        <button id="clear-draw-button">Clear Draw</button>
+        <input type="text" id="title-input" placeholder="Enter Title">
+        <textarea id="paragraph-input" rows="4" placeholder="Enter Paragraph"></textarea>
+        <button id="save-button">Save Image and Text</button>
+        <p id="status-label"></p>
+    </div>
+    <div id="right-frame">
+        <canvas id="canvas"></canvas>
+        <div id="message-container"></div>
+    </div>
+
+    <script>
+        let image = null;
+        let contours = [];
+        let selectedContour = null;
+        let drawnContour = [];
+        let scale = 1.0;
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let statusLabel = document.getElementById('status-label');
+        let messageContainer = document.getElementById('message-container');
+
+        document.getElementById('file-input').addEventListener('change', openImage);
+        document.getElementById('show-contours-button').addEventListener('click', detectAndDisplayContours);
+        document.getElementById('select-contour-button').addEventListener('click', selectContour);
+        document.getElementById('draw-contour-button').addEventListener('click', drawContour);
+        document.getElementById('end-draw-button').addEventListener('click', endDraw);
+        document.getElementById('calculate-distance-button').addEventListener('click', calculateDistance);
+        document.getElementById('save-button').addEventListener('click', saveImageAndText);
+        document.getElementById('clear-draw-button').addEventListener('click', clearDraw);
+
+        const thresholdSlider = document.getElementById('threshold-slider');
+        const thresholdValueLabel = document.getElementById('threshold-value');
+
+        thresholdSlider.addEventListener('input', function() {
+            thresholdValueLabel.textContent = thresholdSlider.value;
+            if (image) {
+                applyThresholdAndDisplay();
+            }
+        });
+
+        function openImage(event) {
+            let file = event.target.files[0];
+            if (file) {
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let img = new Image();
+                    img.onload = function() {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        image = cv.imread(img);
+                        document.getElementById('show-contours-button').disabled = false;
+                        isshow = false;
+                        applyThresholdAndDisplay();
+                    }
+                    img.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        var isshow = false;
+        function detectAndDisplayContours() {
+            if (!isshow) {
+                // Set threshold to 127
+                thresholdSlider.value = 127;
+                thresholdValueLabel.textContent = 127;
+                
+                // Call applyThresholdAndDisplay function
+                applyThresholdAndDisplay();
+                
+                // Enable/disable buttons
+                document.getElementById('select-contour-button').disabled = false;
+                document.getElementById('draw-contour-button').disabled = false;
+                document.getElementById('calculate-distance-button').disabled = false;
+                
+                // Update isshow flag
+                isshow = true;
+            }
+        }
+
+
+        function applyThresholdAndDisplay() {
+            let gray = new cv.Mat();
+            cv.cvtColor(image, gray, cv.COLOR_RGBA2GRAY);
+
+            let thresholdValue = parseInt(thresholdSlider.value);
+            let maxValue = 255;
+            let thresh = new cv.Mat();
+            cv.threshold(gray, thresh, thresholdValue, maxValue, cv.THRESH_BINARY);
+
+            let edges = new cv.Mat();
+            cv.Canny(thresh, edges, 100, 200);
+            contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            let imageCopy = image.clone();
+            for (let i = 0; i < contours.size(); ++i) {
+                cv.drawContours(imageCopy, contours, i, new cv.Scalar(0, 255, 0, 255), 2);
+            }
+            cv.imshow('canvas', imageCopy);
+            gray.delete();
+            thresh.delete();
+            edges.delete();
+            hierarchy.delete();
+            imageCopy.delete();
+        }
+
+        function selectContour() {
+            canvas.addEventListener('click', onClick);
+            showMessage("Click on a contour to select it.");
+        }
+
+        var newSelectedContour = null;
+        function onClick(event) {
+            let rect = canvas.getBoundingClientRect();
+            let x = event.clientX - rect.left;
+            let y = event.clientY - rect.top;
+            for (let i = 0; i < contours.size(); ++i) {
+                let contour = contours.get(i);
+                if (cv.pointPolygonTest(contour, new cv.Point(x, y), false) >= 0) {
+                    if (newSelectedContour) {
+                        if (selectedContour) {
+                            let image = cv.imread('canvas');
+                            for (let i = 0; i < contours.size(); ++i) {
+                                if (contours.get(i) !== selectedContour) {
+                                    cv.drawContours(image, contours, i, new cv.Scalar(0, 255, 0, 255), 2);
+                                }
+                            }
+                            cv.imshow('canvas', image);
+                        }
+                    }
+                    newSelectedContour = contour;
+                    selectedContour = newSelectedContour;
+                    let image = cv.imread('canvas');
+                    cv.drawContours(image, contours, i, new cv.Scalar(255, 0, 0, 255), 2);
+                    cv.imshow('canvas', image);
+                    canvas.removeEventListener('click', onClick);
+
+                    let pixelsInside = cv.contourArea(selectedContour);
+                    let areaInMm2 = pixelsInside / (scale * scale);
+                    let statusMessage = `Contour selected. Area: ${areaInMm2.toFixed(2)} mm²`;
+                    showMessage(statusMessage);
+                    break;
+                }
+            }
+        }
+
+
+
+        function onDrawClick(event) {
+            let rect = canvas.getBoundingClientRect();
+            let x = event.clientX - rect.left;
+            let y = event.clientY - rect.top;
+            drawnContour.push({ x: x, y: y });
+            
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.closePath();
+
+            if (drawnContour.length > 1) {
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(drawnContour[drawnContour.length - 2].x, drawnContour[drawnContour.length - 2].y);
+                ctx.lineTo(drawnContour[drawnContour.length - 1].x, drawnContour[drawnContour.length - 1].y);
+                ctx.stroke();
+                ctx.closePath();
+                
+            }
+        }
+
+        function drawContour() {
+            drawnContour = [];
+
+            canvas.addEventListener('click', onDrawClick);
+            let drawmsg = "Click to draw points for the contour.";
+            showMessage(drawmsg);
+        }
+
+        function endDraw() {
+            console.log("End Draw function called.");
+            canvas.removeEventListener('click', onDrawClick);
+
+            if (drawnContour.length > 1) {
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(drawnContour[drawnContour.length - 1].x, drawnContour[drawnContour.length - 1].y);
+                ctx.lineTo(drawnContour[0].x, drawnContour[0].y);
+                ctx.stroke();
+                ctx.closePath();
+
+                let pixelsInside = calculatePixelsInsideDrawnContour();
+                let scale = 1; // Update this scale factor as needed
+                let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
+
+                let statusMessage = `Contour drawn. Area: ${areaInMm2.toFixed(2)} mm²`;
+                showMessage(statusMessage);
+
+            } else {
+                console.log("No contour drawn.");
+                showMessage("No contour drawn.");
+            }
+        }
+
+
+
+
+
+    function calculateDistance() {
+        points = [];
+        canvas.addEventListener('click', selectPointForDistance);
+        showMessage("Click two points to calculate the distance.");
+    }
+
+    function selectPointForDistance(event) {
+        let rect = canvas.getBoundingClientRect();
+        let x = (event.clientX - rect.left) * (canvas.width / rect.width);
+        let y = (event.clientY - rect.top) * (canvas.height / rect.height);
+        points.push([x, y]);
+
+        // Draw the selected points
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+
+        if (points.length === 2) {
+            canvas.removeEventListener('click', selectPointForDistance);
+
+            // Draw the line between the two points
+            ctx.beginPath();
+            ctx.moveTo(points[0][0], points[0][1]);
+            ctx.lineTo(points[1][0], points[1][1]);
+            ctx.strokeStyle = "blue";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Calculate the distance
+            let dx = points[1][0] - points[0][0];
+            let dy = points[1][1] - points[0][1];
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let distanceInMm = calculatePixelsToMm(distance);
+            showMessage(`Distance: ${distance.toFixed(2)} pixels, ${distanceInMm.toFixed(2)} mm`);
+        }
+    }
+
+    function saveImageAndText() {
+    let title = document.getElementById('title-input').value;
+    let paragraph = document.getElementById('paragraph-input').value;
+
+    // Check if a contour is selected or drawn
+    let areaOrDistance = "";
+    if (selectedContour) {
+        // If a contour is selected, use its area
+        let pixelsInside = cv.contourArea(selectedContour);
+        let areaInMm2 = pixelsInside / (scale * scale);
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
+    } else if (drawnContour.length > 1) {
+        // If a contour is drawn, calculate its area
+        let pixelsInside = calculatePixelsInsideDrawnContour();
+        let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
+    } else if (points.length === 2) {
+        // If two points are selected, use the distance between them
+        let dx = points[1][0] - points[0][0];
+        let dy = points[1][1] - points[0][1];
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        let distanceInMm = calculatePixelsToMm(distance);
+        areaOrDistance = `Distance: ${distance.toFixed(2)} pixels, ${distanceInMm.toFixed(2)} mm`;
+    } else {
+        // Otherwise, use a default message
+        areaOrDistance = "No measurement available";
+    }
+
+    // Draw the area/distance text at the bottom right corner of the image
+    ctx.font = '16px Arial';
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'right';
+    ctx.fillText(areaOrDistance, canvas.width - 10, canvas.height - 10);
+
+    // Save the image file
+    canvas.toBlob(function(blob) {
+        saveAs(blob, `${title}.png`);
+    });
+
+    // Save the text file
+    let textContent = `Title: ${title}\n\n${paragraph}`;
+    let textBlob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    saveAs(textBlob, `${title}.txt`);
+}
+
+
+
+
+    function clearDraw() {
+        drawnContour = [];
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (image) {
+            cv.imshow(canvas, image);
+        }
+
+        showMessage("Contour cleared.");
+   
+    }
+
+    function calculatePixelsInsideDrawnContour() {
+        // Create a mask canvas
+        let maskCanvas = document.createElement('canvas');
+        maskCanvas.width = canvas.width;
+        maskCanvas.height = canvas.height;
+        let maskCtx = maskCanvas.getContext('2d');
+
+        // Draw the drawnContour on the mask canvas
+        maskCtx.beginPath();
+        maskCtx.moveTo(drawnContour[0].x, drawnContour[0].y);
+        for (let i = 1; i < drawnContour.length; i++) {
+            maskCtx.lineTo(drawnContour[i].x, drawnContour[i].y);
+        }
+        maskCtx.closePath();
+        maskCtx.fillStyle = '#ffffff'; // fill the contour with white
+        maskCtx.fill();
+
+        // Create an ImageData object from the mask canvas
+        let maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+
+        // Create a new Mat from the mask data
+        let maskMat = cv.matFromImageData(maskData);
+
+        // Convert the mask to a single-channel grayscale image
+        let maskGray = new cv.Mat();
+        cv.cvtColor(maskMat, maskGray, cv.COLOR_RGBA2GRAY);
+
+        // Use the mask to calculate pixels inside drawn contour
+        let pixelsInside = cv.countNonZero(maskGray);
+
+        // Release memory
+        maskCanvas.remove();
+        maskMat.delete();
+        maskGray.delete();
+
+        return pixelsInside;
+    }
+
+    function calculatePixelsToMm(pixels) {
+        // You can modify this function to convert pixels to millimeters based on your specific requirements
+        // For example, you might need to know the physical size of the image to perform an accurate conversion
+        // This is a simple placeholder function
+        return pixels * 0.1; // Placeholder conversion factor
+    }
+
+    function showMessage(message) {
+            let p = document.createElement('p');
+            p.textContent = message;
+            messageContainer.appendChild(p);
+            setTimeout(() => {
+                messageContainer.removeChild(p);
+            }, 15000);
+
+        }
+</script>
+</body>
+</html>
