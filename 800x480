@@ -7,7 +7,7 @@ import sqlite3
 import pyaudio
 import wave
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-from db import doctor
+from ibutton import doctor
 import threading
 
 
@@ -63,13 +63,13 @@ class App(ctk.CTk):
         self.button_frame.grid(row=1, column=1, padx=10, pady=5)
         self.button_frame.configure(fg_color="transparent", bg_color="transparent", width=300)
 
-        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 15), command=button_callback)
+        self.button_1 = ctk.CTkButton(self.button_frame, text="Consulter mon profil", font=("Serif", 15), command=self.open_folder)
         self.button_1.pack(padx=5, pady=(5, 5))
 
         self.button_2 = ctk.CTkButton(self.button_frame, text="Faire capture photo", font=("Serif", 15), command=self.capture_photo)
         self.button_2.pack(padx=5, pady=(5, 5))
 
-        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidéo", font=("Serif", 15), command=self.capture_video)
+        self.button_3 = ctk.CTkButton(self.button_frame, text="Faire capture vidÃ©o", font=("Serif", 15), command=self.capture_video)
         self.button_3.pack(padx=5, pady=(5, 5))
 
         self.text_entry = ctk.CTkEntry(self.main_frame , font=("Serif", 10), width=200, height=8)
@@ -99,6 +99,18 @@ class App(ctk.CTk):
             padx = 2
             button = ctk.CTkButton(self.keypad_frame, text=text, font=("Serif", 10), command=lambda t=text: self.on_keypad_button_click(t), width=70, height=5)
             button.grid(row=i // 3 + 9, column=i % 3 + 6, padx=padx, pady=2)
+
+
+    def open_folder(folder_path):
+        folder_path = "/home/pi/main/DATA"
+        try:
+            os.system(f'xdg-open "{folder_path}"')
+        except Exception as e:
+            print(f"Error opening folder: {e}")
+
+    
+
+
 
     def on_keypad_button_click(self, text):
         if text == 'Clear':
@@ -146,14 +158,14 @@ class App(ctk.CTk):
 
         return resized_frame
 
-    def detect_objects(self, frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (11,11),0)
-        _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_OTSU)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in contours:
-            cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
-        return frame
+    # def detect_objects(self, frame):
+    #     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #     blurred = cv2.GaussianBlur(gray, (11,11),0)
+    #     _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_OTSU)
+    #     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    #     for contour in contours:
+    #         cv2.drawContours(frame, [contour], -1, (0, 255, 0), 2)
+    #     return frame
         
 
     def update_threaded(self):
@@ -165,8 +177,7 @@ class App(ctk.CTk):
     def update(self):
         ret, frame = self.cap.read()
         if ret:
-            detected_frame = self.detect_objects(frame)
-            flipped_frame = cv2.flip(detected_frame, 1)
+            flipped_frame = cv2.flip(frame, 1)
             resized_frame = self.resize_video_frame(flipped_frame)
             rgb_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
@@ -192,8 +203,8 @@ class App(ctk.CTk):
             image.save(photo_filename)
     def capture_video(self):
         if not self.recording_in_progress:
-            print("faire capture vidéo")
-            self.button_3.configure(text="Arrêter capture vidéo")
+            print("faire capture vidÃ©o")
+            self.button_3.configure(text="ArrÃªter capture vidÃ©o")
             self.video_filename = os.path.join(self.folder_path, f"captured_video_{datetime.now().strftime('%H-%M-%S')}.mp4")
             self.audio_filename = os.path.join(self.folder_path, f"audio_{datetime.now().strftime('%H-%M-%S')}.wav")
             self.out = cv2.VideoWriter(self.video_filename, cv2.VideoWriter_fourcc(*'h264'), 25.0, (640, 480))
@@ -208,7 +219,7 @@ class App(ctk.CTk):
             self.recording_in_progress = True
         else:
             print("Stop recording video")
-            self.button_3.configure(text="Faire capture vidéo")
+            self.button_3.configure(text="Faire capture vidÃ©o")
 
             self.out.release()
 
