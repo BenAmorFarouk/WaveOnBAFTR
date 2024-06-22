@@ -2,7 +2,6 @@ let image = null;
 let contours = [];
 let selectedContour = null;
 let drawnContour = [];
-let scale = 1.0;
 let canvas = document.getElementById('canvas');
 let ctx = canvas.getContext('2d');
 let statusLabel = document.getElementById('status-label');
@@ -17,8 +16,135 @@ document.getElementById('calculate-distance-button').addEventListener('click', c
 document.getElementById('save-button').addEventListener('click', saveImageAndText);
 document.getElementById('clear-draw-button').addEventListener('click', clearDraw);
 
-const thresholdSlider = document.getElementById('threshold-slider');
-const thresholdValueLabel = document.getElementById('threshold-value');
+let thresholdSlider = document.getElementById('threshold-slider');
+let thresholdValueLabel = document.getElementById('threshold-value');
+
+
+
+
+let selectImageBtn = document.getElementById('selectImageBtn');
+let getImageModal = document.getElementById('getImageModal');
+let allImages= [];
+const directoryUrl = 'http://192.168.14.14:5000/get_images';
+let modelSelectImageSrc= "";
+let folders= document.querySelectorAll('.folder');
+
+renderFolder = (folder)=>{
+    imageBtnsHtml= "";
+    const imageButtons = folder.image_urls.forEach(image => {
+        imageBtnsHtml+=`
+        <button class="image-btn" data-image-btn>
+            <img src="http://192.168.14.14:5000/view_folder/main/${image.substring(image.indexOf('DATA/'))
+            }" alt="">
+        </button>
+    `
+    });
+    let folderHtml = document.createElement('div');
+    folderHtml.classList.add('folder');
+    const folderContent= `<button class="folder-name" data-folder-toggler>
+                            <span class="folder-name-label">${folder.folder_name}</span>
+                            <span class="folder-toggler" data-folder-toggler-icon>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                </svg>                                                                                     
+                            </span>
+                        </button>
+                        <div class="folder-images" data-folder-images>
+                            ${imageBtnsHtml}
+                        </div>`;
+
+    folderHtml.innerHTML=folderContent;
+    return folderHtml;
+}
+
+const getImagesFromServer = ()=>{
+
+    fetch(directoryUrl)
+        .then(response => {
+            return response.json();
+        }).then(data=> {
+            data.forEach(folder=>{
+                getImageModal.querySelector('.modal__container').querySelector('.folders').appendChild(renderFolder(folder));
+            })
+            foldersBtns = document.querySelectorAll('[data-folder-toggler]');
+            folders= document.querySelectorAll('.folder');
+            console.log(foldersBtns);
+        })
+        .catch(error => console.error('Error fetching directory:', error));
+}
+
+// Get Image from server function
+
+
+
+const closeModal = ()=>{
+    getImageModal.classList.remove('c-block');
+}
+
+
+
+
+(function name() {
+    getImagesFromServer();
+    setTimeout(()=>{
+        if(selectImageBtn){
+            selectImageBtn.addEventListener('click',()=>{
+                getImageModal.classList.toggle('c-block')
+            })
+        }
+        
+        let foldersBtns = document.querySelectorAll('[data-folder-toggler]');
+        if(foldersBtns){
+            foldersBtns.forEach(btn =>{
+                btn.addEventListener('click',()=>{
+                    console.log("hhhh");
+                    btn.nextElementSibling.classList.toggle('c-grid');
+                    btn.querySelector('[data-folder-toggler-icon]').classList.toggle('c-rotate-90')
+                })
+            })
+        }
+        
+        let imageBtns = document.querySelectorAll('[data-image-btn]');
+        if(imageBtns){
+            imageBtns.forEach(btn =>{
+                btn.addEventListener('click',()=>{
+                    imageBtns.forEach(rbtn =>{
+                        rbtn.classList.remove('image-btn--active')
+                    })
+                    btn.classList.add('image-btn--active')
+                    modelSelectImageSrc= btn.querySelector('img').getAttribute('src');
+                })
+            })
+        }
+        
+        const confirmSelectionBtn = document.querySelector('[data-confirm-selection-btn]');
+        if(confirmSelectionBtn){
+            confirmSelectionBtn.addEventListener('click',()=>{
+                let finalSelectedImage = document.createElement('img');
+                finalSelectedImage.src= modelSelectImageSrc;
+                closeModal();
+                canvas.width = finalSelectedImage.width;
+                canvas.height = finalSelectedImage.height;
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+                ctx.drawImage(finalSelectedImage,0,0);
+                image = cv.imread(finalSelectedImage);
+                confirmImageSelection();
+            })    
+        }
+        const cancelBtn = document.querySelector('[data-cancel-btn]');
+        if(cancelBtn){
+            cancelBtn.addEventListener('click',()=>{
+            closeModal();
+        })
+        }
+        console.log("DONEE");
+    },4000)
+})();
+
+
+
+
+
 
 thresholdSlider.addEventListener('input', function() {
     thresholdValueLabel.textContent = thresholdSlider.value;
@@ -28,50 +154,35 @@ thresholdSlider.addEventListener('input', function() {
 });
 
 
+function confirmImageSelection() {
+    // This function should be called when the user confirms the image selection
+    let finalSelectedImage = document.createElement('img');
+    finalSelectedImage.src = modelSelectImageSrc;
+    // Assuming canvas, ctx are already initialized
+    canvas.width = finalSelectedImage.width;
+    canvas.height = finalSelectedImage.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(finalSelectedImage, 0, 0);
 
+    // Now load image with OpenCV
+    image = cv.imread(finalSelectedImage);
 
-function openImage(event) {
-    let file = event.target.files[0];
-    if (file) {
-        let reader = new FileReader();
-        reader.onload = function(e) {
-            let img = new Image();
-            img.onload = function() {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-                image = cv.imread(img);
-                document.getElementById('show-contours-button').disabled = false;
-                isshow = false;
-                applyThresholdAndDisplay();
-            }
-            img.src = e.target.result;
-        }
-        reader.readAsDataURL(file);
+    // Check if image loading was successful
+    if (image.empty()) {
+        console.error("Failed to load image into cv.Mat");
+        return;
     }
+
+    // Enable necessary buttons and perform initial processing
+    
 }
 
-var isshow = false;
+
+
+
 function detectAndDisplayContours() {
-    if (!isshow) {
-        // Set threshold to 127
-        thresholdSlider.value = 127;
-        thresholdValueLabel.textContent = 127;
-        
-        // Call applyThresholdAndDisplay function
-        applyThresholdAndDisplay();
-        
-        // Enable/disable buttons
-        document.getElementById('select-contour-button').disabled = false;
-        document.getElementById('draw-contour-button').disabled = false;
-        document.getElementById('calculate-distance-button').disabled = false;
-        
-        // Update isshow flag
-        isshow = true;
-    }
-}
-
-function applyThresholdAndDisplay() {
+    thresholdSlider.value = 127;
+    thresholdValueLabel.textContent = 127;
     let gray = new cv.Mat();
     cv.cvtColor(image, gray, cv.COLOR_RGBA2GRAY);
 
@@ -80,11 +191,9 @@ function applyThresholdAndDisplay() {
     let thresh = new cv.Mat();
     cv.threshold(gray, thresh, thresholdValue, maxValue, cv.THRESH_BINARY);
 
-    let edges = new cv.Mat();
-    cv.Canny(thresh, edges, 100, 200);
-    contours = new cv.MatVector();
+    let contours = new cv.MatVector();
     let hierarchy = new cv.Mat();
-    cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
     let imageCopy = image.clone();
     for (let i = 0; i < contours.size(); ++i) {
         cv.drawContours(imageCopy, contours, i, new cv.Scalar(0, 255, 0, 255), 2);
@@ -92,7 +201,6 @@ function applyThresholdAndDisplay() {
     cv.imshow('canvas', imageCopy);
     gray.delete();
     thresh.delete();
-    edges.delete();
     hierarchy.delete();
     imageCopy.delete();
 }
@@ -185,10 +293,9 @@ function endDraw() {
         ctx.closePath();
 
         let pixelsInside = calculatePixelsInsideDrawnContour();
-        let scale = 1; // Update this scale factor as needed
-        let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
-
-        let statusMessage = `Contour drawn. Area: ${areaInMm2.toFixed(2)} mmÂ²`;
+        let scale = 0.3148829373947; // Update this scale factor as needed
+        let areaInMm2 = pixelsInside * scale; // Convert pixels squared to millimeters squared
+        let statusMessage = `Contour drawn. Area: ${areaInMm2.toFixed(2)} mm²`;
         showMessage(statusMessage);
 
     } else {
@@ -297,13 +404,13 @@ function saveImageAndText() {
     if (selectedContour) {
         // If a contour is selected, use its area
         let pixelsInside = cv.contourArea(selectedContour);
-        let areaInMm2 = pixelsInside / (scale * scale);
-        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mmÂ²`;
+        let areaInMm2 = pixelsInside * 0.3148829373947;
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
     } else if (drawnContour.length > 1) {
         // If a contour is drawn, calculate its area
         let pixelsInside = calculatePixelsInsideDrawnContour();
-        let areaInMm2 = pixelsInside * scale * scale; // Convert pixels squared to millimeters squared
-        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mmÂ²`;
+        let areaInMm2 = pixelsInside * 0.3148829373947; // Convert pixels squared to millimeters squared
+        areaOrDistance = `Area: ${areaInMm2.toFixed(2)} mm²`;
     } else if (points.length === 2) {
         // If two points are selected, use the distance between them
         let dx = points[1][0] - points[0][0];
@@ -335,7 +442,7 @@ function saveImageAndText() {
 
 
 function calculatePixelsToMm(pixels) {
-    return pixels * 0.1; 
+    return pixels * 0.5739228841645; 
 }
 
 function showMessage(message) {
@@ -352,121 +459,3 @@ function showMessage(message) {
 
 
 
-let selectImageBtn = document.getElementById('selectImageBtn');
-let getImageModal = document.getElementById('getImageModal');
-let allImages= [];
-const directoryUrl = 'http://192.168.1.145:5000/get_images';
-let modelSelectImageSrc= "";
-let folders= document.querySelectorAll('.folder');
-
-renderFolder = (folder)=>{
-    imageBtnsHtml= "";
-    const imageButtons = folder.image_urls.forEach(image => {
-        imageBtnsHtml+=`
-        <button class="image-btn" data-image-btn>
-            <img src="http://192.168.1.145:5000/view_folder/main/${image.substring(image.indexOf('DATA/'))
-            }" alt="">
-        </button>
-    `
-    });
-    let folderHtml = document.createElement('div');
-    folderHtml.classList.add('folder');
-    const folderContent= `<button class="folder-name" data-folder-toggler>
-                            <span class="folder-name-label">${folder.folder_name}</span>
-                            <span class="folder-toggler" data-folder-toggler-icon>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                                </svg>                                                                                     
-                            </span>
-                        </button>
-                        <div class="folder-images" data-folder-images>
-                            ${imageBtnsHtml}
-                        </div>`;
-
-    folderHtml.innerHTML=folderContent;
-    return folderHtml;
-}
-
-const getImagesFromServer = ()=>{
-
-    fetch(directoryUrl)
-        .then(response => {
-            return response.json();
-        }).then(data=> {
-            data.forEach(folder=>{
-                getImageModal.querySelector('.modal__container').querySelector('.folders').appendChild(renderFolder(folder));
-            })
-            foldersBtns = document.querySelectorAll('[data-folder-toggler]');
-            folders= document.querySelectorAll('.folder');
-            console.log(foldersBtns);
-        })
-        .catch(error => console.error('Error fetching directory:', error));
-}
-
-// Get Image from server function
-
-
-
-const closeModal = ()=>{
-    getImageModal.classList.remove('c-block');
-}
-
-
-
-
-(function name(params) {
-    getImagesFromServer();
-    setTimeout(()=>{
-        if(selectImageBtn){
-            selectImageBtn.addEventListener('click',()=>{
-                getImageModal.classList.toggle('c-block')
-            })
-        }
-        
-        let foldersBtns = document.querySelectorAll('[data-folder-toggler]');
-        if(foldersBtns){
-            foldersBtns.forEach(btn =>{
-                btn.addEventListener('click',()=>{
-                    console.log("hhhh");
-                    btn.nextElementSibling.classList.toggle('c-grid');
-                    btn.querySelector('[data-folder-toggler-icon]').classList.toggle('c-rotate-90')
-                })
-            })
-        }
-        
-        let imageBtns = document.querySelectorAll('[data-image-btn]');
-        if(imageBtns){
-            imageBtns.forEach(btn =>{
-                btn.addEventListener('click',()=>{
-                    imageBtns.forEach(rbtn =>{
-                        rbtn.classList.remove('image-btn--active')
-                    })
-                    btn.classList.add('image-btn--active')
-                    modelSelectImageSrc= btn.querySelector('img').getAttribute('src');
-                })
-            })
-        }
-        
-        const confirmSelectionBtn = document.querySelector('[data-confirm-selection-btn]');
-        if(confirmSelectionBtn){
-            confirmSelectionBtn.addEventListener('click',()=>{
-                let finalSelectedImage = document.createElement('img');
-                finalSelectedImage.src= modelSelectImageSrc;
-                closeModal();
-                canvas.width = finalSelectedImage.width;
-                canvas.height = finalSelectedImage.height;
-                ctx.clearRect(0,0,canvas.width, canvas.height);
-                ctx.drawImage(finalSelectedImage,0,0);
-                image = cv.imread(finalSelectedImage);
-                
-            })    
-        }
-        const cancelBtn = document.querySelector('[data-cancel-btn]');
-        if(cancelBtn){
-            cancelBtn.addEventListener('click',()=>{
-            closeModal();
-        })
-        }
-        console.log("DONEE");
-    },1000)
-})();
